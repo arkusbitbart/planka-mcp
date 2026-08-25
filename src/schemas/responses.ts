@@ -16,6 +16,8 @@ import {
   AttachmentSchema,
   BoardMembershipSchema,
   CardMembershipSchema,
+  ActionSchema,
+  NotificationSchema,
 } from "./entities.js";
 
 // Generic response wrappers
@@ -61,6 +63,17 @@ export const CardLabelResponse = SingleItemResponse(CardLabelSchema);
 export const CardMembershipResponse = SingleItemResponse(CardMembershipSchema);
 
 export const AttachmentResponse = SingleItemResponse(AttachmentSchema);
+
+export const ActionsResponse = MultiItemResponse(ActionSchema);
+
+export const NotificationsResponse = MultiItemResponse(NotificationSchema);
+
+// Included schema for actions/notifications (users for name resolution)
+export const UsersIncludedSchema = z
+  .object({
+    users: z.array(UserSchema).optional(),
+  })
+  .passthrough();
 
 // Auth response
 export const AuthResponse = z.object({

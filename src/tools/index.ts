@@ -8,6 +8,7 @@ import { labelTools } from "./labels.js";
 import { commentTools } from "./comments.js";
 import { listTools } from "./lists.js";
 import { memberTools } from "./members.js";
+import { activityTools } from "./activity.js";
 import {
   addAttachmentTool,
   addLinkAttachmentTool,
@@ -27,6 +28,7 @@ export const allTools = [
   ...commentTools,
   ...listTools,
   ...memberTools,
+  ...activityTools,
   ...(isAttachmentToolEnabled() ? [addAttachmentTool] : []),
   addLinkAttachmentTool,
 ];
