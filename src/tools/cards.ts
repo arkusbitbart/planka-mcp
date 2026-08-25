@@ -9,6 +9,9 @@ import {
   deleteCard,
   duplicateCard,
   resolveListPosition,
+  resolveStopwatchUpdate,
+  formatStopwatch,
+  StopwatchInput,
 } from "../operations/cards.js";
 import { createTasks } from "../operations/tasks.js";
 import { addLabelToCard, resolveCardLabels } from "../operations/labels.js";
@@ -209,7 +212,11 @@ export const getCardTool = {
           listId: details.card.listId,
           boardId: details.card.boardId,
           dueDate: details.card.dueDate,
-          isCompleted: details.card.isCompleted,
+          ...(details.card.isDueCompleted && { isDueCompleted: true }),
+          ...(details.card.isClosed && { isClosed: true }),
+          ...(details.card.stopwatch && {
+            stopwatch: formatStopwatch(details.card.stopwatch),
+          }),
           createdAt: details.card.createdAt,
         },
         taskLists: details.taskLists.map((tl) => ({
@@ -273,7 +280,7 @@ export const getCardTool = {
 export const updateCardTool = {
   name: "planka_update_card",
   description:
-    "Update a card's properties (name, description, due date, completion status).",
+    "Update a card's properties (name, description, due date, due-completed checkbox, stopwatch).",
   annotations: {
     readOnlyHint: false,
     destructiveHint: false,
@@ -299,9 +306,15 @@ export const updateCardTool = {
         description:
           "New due date, ISO 8601 with timezone, e.g. 2026-08-31T17:00:00.000Z (null to clear)",
       },
-      isCompleted: {
-        type: "boolean",
-        description: "Mark card as complete/incomplete",
+      isDueCompleted: {
+        type: ["boolean", "null"],
+        description:
+          "Check/uncheck the due date as completed (the API field is isDueCompleted; there is no general card completion flag)",
+      },
+      stopwatch: {
+        type: ["string", "object", "null"],
+        description:
+          'Time tracking: "start" (begin/resume timing), "stop" (pause, adds elapsed time to the total), "reset" (remove the stopwatch), null (same as reset), or a raw {startedAt: ISO-8601|null, total: seconds} object',
       },
     },
     required: ["cardId"],
@@ -311,10 +324,26 @@ export const updateCardTool = {
     name?: string;
     description?: string | null;
     dueDate?: string | null;
-    isCompleted?: boolean;
+    isDueCompleted?: boolean | null;
+    stopwatch?: StopwatchInput;
   }) => {
     try {
       const { cardId, ...updates } = params;
+
+      if (
+        typeof updates.stopwatch === "string" &&
+        !["start", "stop", "reset"].includes(updates.stopwatch)
+      ) {
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: `Error: Invalid stopwatch value '${updates.stopwatch}'. Use "start", "stop", "reset", null, or {startedAt, total}.`,
+            },
+          ],
+          isError: true,
+        };
+      }
 
       // Only include defined fields
       const filteredUpdates: Record<string, unknown> = {};
@@ -323,8 +352,13 @@ export const updateCardTool = {
         filteredUpdates.description = updates.description;
       if (updates.dueDate !== undefined)
         filteredUpdates.dueDate = updates.dueDate;
-      if (updates.isCompleted !== undefined)
-        filteredUpdates.isCompleted = updates.isCompleted;
+      if (updates.isDueCompleted !== undefined)
+        filteredUpdates.isDueCompleted = updates.isDueCompleted;
+      if (updates.stopwatch !== undefined)
+        filteredUpdates.stopwatch = await resolveStopwatchUpdate(
+          cardId,
+          updates.stopwatch
+        );
 
       const card = await updateCard(cardId, filteredUpdates);
 
@@ -340,7 +374,8 @@ export const updateCardTool = {
                   name: card.name,
                   description: card.description,
                   dueDate: card.dueDate,
-                  isCompleted: card.isCompleted,
+                  isDueCompleted: card.isDueCompleted ?? false,
+                  stopwatch: formatStopwatch(card.stopwatch),
                 },
               },
               null,

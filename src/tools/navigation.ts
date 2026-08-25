@@ -185,8 +185,8 @@ export const getBoardTool = {
                 cardData.dueDate = card.dueDate;
               }
 
-              if (card.isCompleted) {
-                cardData.isCompleted = card.isCompleted;
+              if (card.isClosed) {
+                cardData.isClosed = card.isClosed;
               }
 
               const cardLabels = labelsByCard.get(card.id);
@@ -277,8 +277,8 @@ async function getSingleListView(listId: string, includeTaskCounts?: boolean) {
         if (card.dueDate) {
           cardData.dueDate = card.dueDate;
         }
-        if (card.isCompleted) {
-          cardData.isCompleted = card.isCompleted;
+        if (card.isClosed) {
+          cardData.isClosed = card.isClosed;
         }
 
         const labelIds = labelIdsByCard.get(card.id);

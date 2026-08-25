@@ -24,7 +24,15 @@ export const UpdateCardSchema = z.object({
   name: z.string().min(1).optional(),
   description: z.string().nullable().optional(),
   dueDate: z.string().nullable().optional(),
-  isCompleted: z.boolean().optional(),
+  // Per spec the PATCH field is isDueCompleted (there is no isCompleted)
+  isDueCompleted: z.boolean().nullable().optional(),
+  stopwatch: z
+    .object({
+      startedAt: z.string().nullable(),
+      total: z.number(),
+    })
+    .nullable()
+    .optional(),
   listId: z.string().optional(), // For moving cards
   boardId: z.string().optional(), // For moving across boards
   position: z.number().optional(),

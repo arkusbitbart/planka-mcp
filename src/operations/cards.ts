@@ -66,6 +66,83 @@ export async function resolveListPosition(
   return Math.max(...positions) + DEFAULT_CARD_POSITION;
 }
 
+/** Stopwatch update: a convenience action or the raw field value. */
+export type StopwatchInput =
+  | "start"
+  | "stop"
+  | "reset"
+  | { startedAt: string | null; total: number }
+  | null;
+
+/**
+ * Resolves a stopwatch update to the raw PATCH value.
+ * "reset" -> null; a raw object or null passes through (no request).
+ * "start"/"stop" read the card's current stopwatch first: start keeps the
+ * accumulated total and stamps startedAt (no-op if already running); stop
+ * adds the elapsed time to total and clears startedAt (no-op if paused).
+ */
+export async function resolveStopwatchUpdate(
+  cardId: string,
+  input: StopwatchInput,
+  nowMs: number = Date.now()
+): Promise<{ startedAt: string | null; total: number } | null> {
+  if (input === "reset") return null;
+  if (input === null || typeof input === "object") return input;
+
+  const current = (await getCard(cardId)).card.stopwatch ?? null;
+  const running =
+    current?.startedAt !== null && current?.startedAt !== undefined;
+
+  if (input === "start") {
+    if (running) {
+      return { startedAt: current!.startedAt!, total: current!.total };
+    }
+    return { startedAt: new Date(nowMs).toISOString(), total: current?.total ?? 0 };
+  }
+
+  // "stop"
+  if (!running) {
+    return current ? { startedAt: null, total: current.total } : null;
+  }
+  const elapsedSeconds = Math.max(
+    0,
+    Math.round((nowMs - new Date(current!.startedAt!).getTime()) / 1000)
+  );
+  return { startedAt: null, total: current!.total + elapsedSeconds };
+}
+
+/**
+ * Formats a card's stopwatch human-readably.
+ * Elapsed time = total plus, while running, the time since startedAt.
+ */
+export function formatStopwatch(
+  stopwatch: { startedAt?: string | null; total: number } | null | undefined,
+  nowMs: number = Date.now()
+): { running: boolean; elapsed: string; startedAt?: string } | null {
+  if (!stopwatch) return null;
+
+  const running = stopwatch.startedAt !== null && stopwatch.startedAt !== undefined;
+  let seconds = stopwatch.total;
+  if (running) {
+    seconds += Math.max(
+      0,
+      Math.round((nowMs - new Date(stopwatch.startedAt!).getTime()) / 1000)
+    );
+  }
+
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = Math.floor(seconds % 60);
+  const elapsed =
+    h > 0 ? `${h}h ${m}m ${s}s` : m > 0 ? `${m}m ${s}s` : `${s}s`;
+
+  return {
+    running,
+    elapsed,
+    ...(running && { startedAt: stopwatch.startedAt! }),
+  };
+}
+
 /**
  * Card details with all related entities.
  */

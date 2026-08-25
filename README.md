@@ -29,6 +29,7 @@ Derived from the git history since the fork point:
 - `planka_get_card` and `planka_get_board` show card assignees.
 - 404 errors name the missing resource and the tool that lists valid IDs.
 - `planka_create_card` accepts `position`: `"top"`, `"bottom"`, or a number; date fields document the expected ISO 8601 format.
+- Time tracking: `planka_update_card` drives the card stopwatch (`"start"`/`"stop"`/`"reset"` or a raw `{startedAt, total}`), and `planka_get_card` shows the elapsed time human-readably. The former `isCompleted` parameter was replaced by `isDueCompleted` — the API has no `isCompleted` field, so the old parameter was silently ignored.
 - All tools carry MCP annotations (`readOnlyHint`/`destructiveHint`/`idempotentHint`) so clients can auto-approve read-only calls.
 
 **Security**
@@ -166,7 +167,7 @@ Add to `~/.claude.json`:
 |------|-------------|
 | `planka_create_card` | Create a card (optionally with tasks and labels; position `top`/`bottom`/number) |
 | `planka_get_card` | Card details with checklists, comments, labels, assignees, attachments |
-| `planka_update_card` | Update name, description, due date, completion |
+| `planka_update_card` | Update name, description, due date, due-completed checkbox, stopwatch (`start`/`stop`/`reset`) |
 | `planka_move_card` | Move card to a different list/position |
 | `planka_duplicate_card` | Duplicate a card, optionally into another list |
 | `planka_delete_card` | Permanently delete a card |
