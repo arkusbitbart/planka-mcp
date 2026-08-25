@@ -1,8 +1,7 @@
 {
-  "name": "@gogogadgetbytes/planka-mcp",
-  "version": "1.0.0",
-  "mcpName": "io.github.gogogadgetbytes/planka",
-  "description": "MCP server for PLANKA kanban boards",
+  "name": "@arkusbitbart/planka-mcp",
+  "version": "2.0.0",
+  "description": "MCP server for PLANKA kanban boards (fork of gogogadgetbytes/planka-mcp)",
   "type": "module",
   "main": "dist/index.js",
   "bin": {
@@ -29,11 +28,15 @@
     "claude",
     "ai-agent"
   ],
-  "author": "gogogadgetbytes",
+  "author": "arkusbitbart",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/gogogadgetbytes/planka-mcp.git"
+    "url": "https://github.com/arkusbitbart/planka-mcp.git"
+  },
+  "homepage": "https://github.com/arkusbitbart/planka-mcp#readme",
+  "bugs": {
+    "url": "https://github.com/arkusbitbart/planka-mcp/issues"
   },
   "engines": {
     "node": ">=18.0.0"

@@ -2,6 +2,20 @@
 
 A Model Context Protocol (MCP) server for [PLANKA](https://planka.app) kanban boards, purpose-built for Claude and other AI agents.
 
+## About this fork
+
+This is a fork of [gogogadgetbytes/planka-mcp](https://github.com/gogogadgetbytes/planka-mcp), extended from 15 to 32 tools. Added on top of the original:
+
+- API key authentication (`X-Api-Key`) — no password in the client config
+- Card assignments (board members, assign/unassign)
+- Attachments (file uploads with a path sandbox, link attachments)
+- Activity log and notifications
+- Project and board management
+- Tool annotations (`readOnlyHint`/`destructiveHint`/`idempotentHint`) for confirmation-free read access
+- Comment editing, card duplication, multiple checklists per card, list actions (sort/move/clear), actionable error messages
+
+This fork is not published to npm — install from source as described below.
+
 ## Features
 
 - Full PLANKA 2.0 API support
@@ -12,15 +26,16 @@ A Model Context Protocol (MCP) server for [PLANKA](https://planka.app) kanban bo
 
 ## Installation
 
-```bash
-npm install @gogogadgetbytes/planka-mcp
-```
-
-Or run directly:
+This fork is installed from source (it is not published to npm):
 
 ```bash
-npx @gogogadgetbytes/planka-mcp
+git clone https://github.com/arkusbitbart/planka-mcp.git
+cd planka-mcp
+npm install
+npm run build
 ```
+
+Then point your MCP client at the built entry point with `"command": "node"` and the absolute path to `dist/index.js` (see the configuration examples below).
 
 ## Configuration
 
@@ -57,8 +72,8 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 {
   "mcpServers": {
     "planka": {
-      "command": "npx",
-      "args": ["@gogogadgetbytes/planka-mcp"],
+      "command": "node",
+      "args": ["/absolute/path/to/planka-mcp/dist/index.js"],
       "env": {
         "PLANKA_BASE_URL": "https://planka.example.com",
         "PLANKA_API_KEY": "your-api-key",
@@ -84,8 +99,8 @@ Add to `~/.claude.json`:
 {
   "mcpServers": {
     "planka": {
-      "command": "npx",
-      "args": ["@gogogadgetbytes/planka-mcp"],
+      "command": "node",
+      "args": ["/absolute/path/to/planka-mcp/dist/index.js"],
       "env": {
         "PLANKA_BASE_URL": "https://planka.example.com",
         "PLANKA_API_KEY": "your-api-key"
@@ -209,7 +224,7 @@ This server is designed for PLANKA 2.0 and handles the API differences from 1.x:
 
 ```bash
 # Clone
-git clone https://github.com/gogogadgetbytes/planka-mcp.git
+git clone https://github.com/arkusbitbart/planka-mcp.git
 cd planka-mcp
 
 # Install
@@ -230,4 +245,5 @@ MIT
 
 - [PLANKA](https://planka.app) - The kanban board
 - [MCP SDK](https://github.com/modelcontextprotocol/sdk) - Model Context Protocol
-- [Design Document](./DESIGN.md) - Technical design details
+- [Upstream project](https://github.com/gogogadgetbytes/planka-mcp) - The original this fork is based on
+- [Design Document (historical)](./DESIGN.md) - The upstream project's original design notes; **not current** — the code and this README are authoritative
