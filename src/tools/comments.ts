@@ -15,6 +15,11 @@ export const addCommentTool = {
   name: "planka_add_comment",
   description:
     "Add a comment to a card. Use this for status updates, notes, or agent activity logs.",
+  annotations: {
+    readOnlyHint: false,
+    destructiveHint: false,
+    idempotentHint: false,
+  },
   inputSchema: {
     type: "object" as const,
     properties: {
@@ -74,6 +79,11 @@ export const addCommentTool = {
 export const getCommentsTool = {
   name: "planka_get_comments",
   description: "Get all comments on a card.",
+  annotations: {
+    readOnlyHint: true,
+    destructiveHint: false,
+    idempotentHint: true,
+  },
   inputSchema: {
     type: "object" as const,
     properties: {

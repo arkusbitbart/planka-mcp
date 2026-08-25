@@ -47,7 +47,8 @@ export const UserSchema = z.object({
   username: z.string().optional(),
   name: z.string(),
   avatarUrl: z.string().nullable().optional(),
-  createdAt: z.string(),
+  // Per the OpenAPI spec, user timestamps can be null
+  createdAt: z.string().nullable().optional(),
   updatedAt: z.string().nullable().optional(),
 });
 export type User = z.infer<typeof UserSchema>;
@@ -149,6 +150,29 @@ export const CardLabelSchema = z.object({
   updatedAt: z.string().nullable().optional(),
 });
 export type CardLabel = z.infer<typeof CardLabelSchema>;
+
+// Board membership schema (user's access to a board)
+export const BoardMembershipSchema = z.object({
+  id: z.string(),
+  projectId: z.string().optional(),
+  boardId: z.string(),
+  userId: z.string(),
+  role: z.enum(["editor", "viewer"]),
+  canComment: z.boolean().nullable().optional(),
+  createdAt: z.string().nullable().optional(),
+  updatedAt: z.string().nullable().optional(),
+});
+export type BoardMembership = z.infer<typeof BoardMembershipSchema>;
+
+// Card-Membership relationship (user assigned to a card)
+export const CardMembershipSchema = z.object({
+  id: z.string(),
+  cardId: z.string(),
+  userId: z.string(),
+  createdAt: z.string().nullable().optional(),
+  updatedAt: z.string().nullable().optional(),
+});
+export type CardMembership = z.infer<typeof CardMembershipSchema>;
 
 // Comment schema
 export const CommentSchema = z.object({

@@ -20,6 +20,11 @@ export const createCardTool = {
   name: "planka_create_card",
   description:
     "Create a new card on a board. Optionally add tasks (checklist items) at the same time.",
+  annotations: {
+    readOnlyHint: false,
+    destructiveHint: false,
+    idempotentHint: false,
+  },
   inputSchema: {
     type: "object" as const,
     properties: {
@@ -134,6 +139,11 @@ export const getCardTool = {
   name: "planka_get_card",
   description:
     "Get full details of a card including tasks, comments, labels, and attachments.",
+  annotations: {
+    readOnlyHint: true,
+    destructiveHint: false,
+    idempotentHint: true,
+  },
   inputSchema: {
     type: "object" as const,
     properties: {
@@ -211,6 +221,11 @@ export const updateCardTool = {
   name: "planka_update_card",
   description:
     "Update a card's properties (name, description, due date, completion status).",
+  annotations: {
+    readOnlyHint: false,
+    destructiveHint: false,
+    idempotentHint: true,
+  },
   inputSchema: {
     type: "object" as const,
     properties: {
@@ -300,6 +315,11 @@ export const moveCardTool = {
   name: "planka_move_card",
   description:
     "Move a card to a different list or position. Use this for workflow transitions (e.g., 'To Do' -> 'In Progress').",
+  annotations: {
+    readOnlyHint: false,
+    destructiveHint: false,
+    idempotentHint: true,
+  },
   inputSchema: {
     type: "object" as const,
     properties: {
@@ -369,6 +389,11 @@ export const moveCardTool = {
 export const deleteCardTool = {
   name: "planka_delete_card",
   description: "Permanently delete a card. This cannot be undone.",
+  annotations: {
+    readOnlyHint: false,
+    destructiveHint: true,
+    idempotentHint: true,
+  },
   inputSchema: {
     type: "object" as const,
     properties: {

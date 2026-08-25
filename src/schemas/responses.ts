@@ -14,6 +14,8 @@ import {
   UserSchema,
   CardLabelSchema,
   AttachmentSchema,
+  BoardMembershipSchema,
+  CardMembershipSchema,
 } from "./entities.js";
 
 // Generic response wrappers
@@ -56,6 +58,10 @@ export const CommentsResponse = MultiItemResponse(CommentSchema);
 
 export const CardLabelResponse = SingleItemResponse(CardLabelSchema);
 
+export const CardMembershipResponse = SingleItemResponse(CardMembershipSchema);
+
+export const AttachmentResponse = SingleItemResponse(AttachmentSchema);
+
 // Auth response
 export const AuthResponse = z.object({
   item: z.string(), // JWT token
@@ -71,6 +77,8 @@ export const BoardIncludedSchema = z
     taskLists: z.array(TaskListSchema).optional(),
     tasks: z.array(TaskSchema).optional(),
     users: z.array(UserSchema).optional(),
+    boardMemberships: z.array(BoardMembershipSchema).optional(),
+    cardMemberships: z.array(CardMembershipSchema).optional(),
   })
   .passthrough(); // Allow additional fields
 

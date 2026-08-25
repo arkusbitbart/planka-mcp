@@ -11,6 +11,11 @@ import { PlankaError } from "../errors.js";
 export const createTasksTool = {
   name: "planka_create_tasks",
   description: "Add one or more tasks (checklist items) to a card.",
+  annotations: {
+    readOnlyHint: false,
+    destructiveHint: false,
+    idempotentHint: false,
+  },
   inputSchema: {
     type: "object" as const,
     properties: {
@@ -73,6 +78,11 @@ export const createTasksTool = {
 export const updateTaskTool = {
   name: "planka_update_task",
   description: "Update a task's name or completion status.",
+  annotations: {
+    readOnlyHint: false,
+    destructiveHint: false,
+    idempotentHint: true,
+  },
   inputSchema: {
     type: "object" as const,
     properties: {
@@ -145,6 +155,11 @@ export const updateTaskTool = {
 export const deleteTaskTool = {
   name: "planka_delete_task",
   description: "Delete a task from a card.",
+  annotations: {
+    readOnlyHint: false,
+    destructiveHint: true,
+    idempotentHint: true,
+  },
   inputSchema: {
     type: "object" as const,
     properties: {

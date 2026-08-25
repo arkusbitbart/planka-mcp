@@ -20,6 +20,11 @@ const validColors = LabelColorSchema.options.join(", ");
 export const manageLabelsTool = {
   name: "planka_manage_labels",
   description: "Create, update, or delete labels on a board.",
+  annotations: {
+    readOnlyHint: false,
+    destructiveHint: true, // the delete action permanently removes a label
+    idempotentHint: false,
+  },
   inputSchema: {
     type: "object" as const,
     properties: {
@@ -248,6 +253,11 @@ export const manageLabelsTool = {
 export const setCardLabelsTool = {
   name: "planka_set_card_labels",
   description: "Add or remove labels from a card.",
+  annotations: {
+    readOnlyHint: false,
+    destructiveHint: false,
+    idempotentHint: true,
+  },
   inputSchema: {
     type: "object" as const,
     properties: {

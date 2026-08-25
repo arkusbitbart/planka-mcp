@@ -88,6 +88,27 @@ export const RemoveLabelFromCardSchema = z.object({
 });
 export type RemoveLabelFromCardInput = z.input<typeof RemoveLabelFromCardSchema>;
 
+// Card membership requests
+export const AssignCardSchema = z.object({
+  cardId: z.string(),
+  userId: z.string(),
+});
+export type AssignCardInput = z.input<typeof AssignCardSchema>;
+
+export const UnassignCardSchema = z.object({
+  cardId: z.string(),
+  userId: z.string(),
+});
+export type UnassignCardInput = z.input<typeof UnassignCardSchema>;
+
+// Attachment requests
+export const AddAttachmentSchema = z.object({
+  cardId: z.string(),
+  filePath: z.string().min(1, "filePath required"),
+  name: z.string().max(128).optional(),
+});
+export type AddAttachmentInput = z.input<typeof AddAttachmentSchema>;
+
 // Comment requests
 export const CreateCommentSchema = z.object({
   cardId: z.string(),

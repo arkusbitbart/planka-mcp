@@ -7,9 +7,12 @@ import { taskTools } from "./tasks.js";
 import { labelTools } from "./labels.js";
 import { commentTools } from "./comments.js";
 import { listTools } from "./lists.js";
+import { memberTools } from "./members.js";
+import { attachmentTools, isAttachmentToolEnabled } from "./attachments.js";
 
 /**
  * All registered tools.
+ * The attachment tool is only exposed when PLANKA_UPLOAD_DIR is configured.
  */
 export const allTools = [
   ...navigationTools,
@@ -18,7 +21,19 @@ export const allTools = [
   ...labelTools,
   ...commentTools,
   ...listTools,
+  ...memberTools,
+  ...(isAttachmentToolEnabled() ? attachmentTools : []),
 ];
+
+/**
+ * MCP tool behavior hints. Clients use these to decide when to ask the user
+ * for confirmation (e.g. read-only tools can be auto-approved).
+ */
+export interface ToolAnnotations {
+  readOnlyHint?: boolean;
+  destructiveHint?: boolean;
+  idempotentHint?: boolean;
+}
 
 /**
  * Tool type definition.
@@ -26,6 +41,7 @@ export const allTools = [
 export interface Tool {
   name: string;
   description: string;
+  annotations?: ToolAnnotations;
   inputSchema: {
     type: "object";
     properties: Record<string, unknown>;
@@ -52,6 +68,7 @@ export function getToolDefinitions() {
     name: tool.name,
     description: tool.description,
     inputSchema: tool.inputSchema,
+    annotations: tool.annotations,
   }));
 }
 
@@ -62,3 +79,5 @@ export { taskTools } from "./tasks.js";
 export { labelTools } from "./labels.js";
 export { commentTools } from "./comments.js";
 export { listTools } from "./lists.js";
+export { memberTools } from "./members.js";
+export { attachmentTools } from "./attachments.js";

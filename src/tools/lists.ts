@@ -15,6 +15,11 @@ import { PlankaError } from "../errors.js";
 export const manageListsTool = {
   name: "planka_manage_lists",
   description: "Create, update, or delete lists on a board.",
+  annotations: {
+    readOnlyHint: false,
+    destructiveHint: true, // the delete action removes a list and its cards
+    idempotentHint: false,
+  },
   inputSchema: {
     type: "object" as const,
     properties: {

@@ -12,6 +12,11 @@ export const getStructureTool = {
   name: "planka_get_structure",
   description:
     "Get the full project/board/list structure. Use this to understand what projects and boards exist before working with cards.",
+  annotations: {
+    readOnlyHint: true,
+    destructiveHint: false,
+    idempotentHint: true,
+  },
   inputSchema: {
     type: "object" as const,
     properties: {
@@ -61,6 +66,11 @@ export const getBoardTool = {
   name: "planka_get_board",
   description:
     "Get a board with all its lists, cards, and labels. Use this to see everything on a board.",
+  annotations: {
+    readOnlyHint: true,
+    destructiveHint: false,
+    idempotentHint: true,
+  },
   inputSchema: {
     type: "object" as const,
     properties: {
