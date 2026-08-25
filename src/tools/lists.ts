@@ -57,7 +57,10 @@ export const manageListsTool = {
           'List type: "active" (default for create) or "closed" (done column)',
       },
       color: {
-        type: ["string", "null"],
+        anyOf: [
+          { type: "string", enum: ListColorSchema.options },
+          { type: "null" },
+        ],
         description: `List color (update only, null to clear). Valid colors: ${validListColors}`,
       },
       targetBoardId: {

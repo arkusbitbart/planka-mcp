@@ -107,7 +107,7 @@ export const updateTaskTool = {
         description: "Mark as complete/incomplete",
       },
       assigneeUserId: {
-        type: ["string", "null"],
+        anyOf: [{ type: "string" }, { type: "null" }],
         description:
           "Assign the task to a board member (userId from planka_get_board_members); null to unassign",
       },
