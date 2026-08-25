@@ -57,11 +57,9 @@ export const manageListsTool = {
           'List type: "active" (default for create) or "closed" (done column)',
       },
       color: {
-        anyOf: [
-          { type: "string", enum: ListColorSchema.options },
-          { type: "null" },
-        ],
-        description: `List color (update only, null to clear). Valid colors: ${validListColors}`,
+        type: "string",
+        enum: [...ListColorSchema.options, "none"],
+        description: `List color (update only). Valid colors: ${validListColors}. Pass "none" to clear.`,
       },
       targetBoardId: {
         type: "string",
@@ -77,7 +75,7 @@ export const manageListsTool = {
     name?: string;
     position?: number;
     type?: "active" | "closed";
-    color?: string | null;
+    color?: string;
     targetBoardId?: string;
   }) => {
     try {
@@ -154,21 +152,23 @@ export const manageListsTool = {
           if (params.targetBoardId !== undefined)
             updates.boardId = params.targetBoardId;
           if (params.color !== undefined) {
-            if (params.color !== null) {
+            if (params.color === "none") {
+              updates.color = null;
+            } else {
               const colorParse = ListColorSchema.safeParse(params.color);
               if (!colorParse.success) {
                 return {
                   content: [
                     {
                       type: "text" as const,
-                      text: `Error: Invalid list color '${params.color}'. Valid colors: ${validListColors}`,
+                      text: `Error: Invalid list color '${params.color}'. Valid colors: ${validListColors}, or "none" to clear.`,
                     },
                   ],
                   isError: true,
                 };
               }
+              updates.color = colorParse.data;
             }
-            updates.color = params.color;
           }
 
           const list = await updateList(params.listId, updates);
