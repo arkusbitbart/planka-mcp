@@ -137,8 +137,18 @@ class PlankaClient {
 
     if (!response.ok) {
       const body = await this.safeParseJson(response);
+      const message =
+        typeof body === "object" && body !== null && "message" in body
+          ? String((body as Record<string, unknown>).message)
+          : "";
+
+      if (response.status === 403 && message === "Terms acceptance required") {
+        return this.handleTermsAcceptance(body);
+      }
+
       throw new PlankaAuthError(
-        `Authentication failed: ${response.status} ${response.statusText}`
+        `Authentication failed: ${response.status} ${response.statusText}` +
+          (message ? ` (${message})` : "")
       );
     }
 
@@ -151,6 +161,79 @@ class PlankaClient {
     this.tokenExpiresAt = Date.now() + 25 * 60 * 1000;
     this.token = parsed.item;
 
+    return this.token;
+  }
+
+  /**
+   * Handles PLANKA's "Terms acceptance required" login response.
+   *
+   * Accepting the terms is a consent given on the account owner's behalf,
+   * so it only happens when PLANKA_AUTO_ACCEPT_TERMS is explicitly "true".
+   * The flow (POST /access-tokens/accept-terms) needs a pendingToken from
+   * the login response and the signature from GET /terms; the OpenAPI spec
+   * does not document where the pendingToken is returned, so this reads it
+   * defensively and fails with clear guidance if it is absent.
+   */
+  private async handleTermsAcceptance(loginBody: unknown): Promise<string> {
+    const config = this.getConfig();
+
+    if (process.env.PLANKA_AUTO_ACCEPT_TERMS !== "true") {
+      throw new PlankaAuthError(
+        "PLANKA requires accepting the terms of service for this account. " +
+          "Log in manually once via the PLANKA web UI to review and accept them, " +
+          "or set PLANKA_AUTO_ACCEPT_TERMS=true to accept them automatically on login."
+      );
+    }
+
+    const bodyObj = (loginBody ?? {}) as Record<string, any>;
+    const pendingToken: unknown =
+      bodyObj.pendingToken ?? bodyObj.item?.pendingToken ?? bodyObj.data?.pendingToken;
+
+    if (typeof pendingToken !== "string" || pendingToken === "") {
+      throw new PlankaAuthError(
+        "PLANKA requires accepting the terms, but the login response contained no " +
+          "pending token (the OpenAPI spec does not document where it is returned). " +
+          "Log in manually once via the PLANKA web UI to accept the terms."
+      );
+    }
+
+    // Fetch the current terms signature
+    const termsResponse = await fetch(`${config.baseUrl}/api/terms`, {
+      signal: this.createTimeoutSignal(),
+    });
+    const termsBody = (await this.safeParseJson(termsResponse)) as Record<
+      string,
+      any
+    > | null;
+    const signature: unknown = termsBody?.item?.signature;
+
+    if (!termsResponse.ok || typeof signature !== "string") {
+      throw new PlankaAuthError(
+        "Could not fetch the terms signature from GET /api/terms; cannot accept " +
+          "the terms automatically. Log in manually once via the PLANKA web UI."
+      );
+    }
+
+    const acceptResponse = await fetch(
+      `${config.baseUrl}/api/access-tokens/accept-terms`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pendingToken, signature }),
+        signal: this.createTimeoutSignal(),
+      }
+    );
+
+    if (!acceptResponse.ok) {
+      throw new PlankaAuthError(
+        `Accepting the terms failed: ${acceptResponse.status} ${acceptResponse.statusText}. ` +
+          "Log in manually once via the PLANKA web UI."
+      );
+    }
+
+    const parsed = AuthResponse.parse(await acceptResponse.json());
+    this.tokenExpiresAt = Date.now() + 25 * 60 * 1000;
+    this.token = parsed.item;
     return this.token;
   }
 

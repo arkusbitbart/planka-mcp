@@ -14,6 +14,60 @@ import {
   User,
 } from "../schemas/entities.js";
 import { BoardResponse, BoardIncludedSchema } from "../schemas/responses.js";
+import {
+  CreateBoardSchema,
+  UpdateBoardSchema,
+  CreateBoardInput,
+  UpdateBoardInput,
+} from "../schemas/requests.js";
+
+/**
+ * Create a board in a project.
+ * POST /projects/{projectId}/boards — the API expects multipart/form-data
+ * (the endpoint doubles as a Trello import), so a FormData body is used.
+ */
+export async function createBoard(input: CreateBoardInput): Promise<Board> {
+  const validated = CreateBoardSchema.parse(input);
+
+  const form = new FormData();
+  form.append("name", validated.name);
+  form.append("position", String(validated.position));
+
+  const response = await plankaClient.postForm<unknown>(
+    `/api/projects/${validated.projectId}/boards`,
+    form
+  );
+
+  const parsed = BoardResponse.parse(response);
+  return parsed.item;
+}
+
+/**
+ * Update a board's name or position.
+ * PATCH /boards/{id}
+ */
+export async function updateBoard(
+  boardId: string,
+  input: UpdateBoardInput
+): Promise<Board> {
+  const validated = UpdateBoardSchema.parse(input);
+
+  const response = await plankaClient.patch<unknown>(
+    `/api/boards/${boardId}`,
+    validated
+  );
+
+  const parsed = BoardResponse.parse(response);
+  return parsed.item;
+}
+
+/**
+ * Delete a board with everything on it.
+ * DELETE /boards/{id}
+ */
+export async function deleteBoard(boardId: string): Promise<void> {
+  await plankaClient.delete(`/api/boards/${boardId}`);
+}
 
 /**
  * Full board details with all included entities.

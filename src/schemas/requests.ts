@@ -120,6 +120,34 @@ export const MoveListCardsSchema = z.object({
 });
 export type MoveListCardsInput = z.input<typeof MoveListCardsSchema>;
 
+// Project requests
+export const CreateProjectSchema = z.object({
+  name: z.string().min(1, "Project name required"),
+  type: z.enum(["private", "shared"]).optional().default("private"),
+  description: z.string().optional(),
+});
+export type CreateProjectInput = z.input<typeof CreateProjectSchema>;
+
+export const UpdateProjectSchema = z.object({
+  name: z.string().min(1).optional(),
+  description: z.string().nullable().optional(),
+});
+export type UpdateProjectInput = z.input<typeof UpdateProjectSchema>;
+
+// Board requests
+export const CreateBoardSchema = z.object({
+  projectId: z.string(),
+  name: z.string().min(1, "Board name required").max(128),
+  position: z.number().optional().default(65536),
+});
+export type CreateBoardInput = z.input<typeof CreateBoardSchema>;
+
+export const UpdateBoardSchema = z.object({
+  name: z.string().min(1).max(128).optional(),
+  position: z.number().optional(),
+});
+export type UpdateBoardInput = z.input<typeof UpdateBoardSchema>;
+
 // Card membership requests
 export const AssignCardSchema = z.object({
   cardId: z.string(),

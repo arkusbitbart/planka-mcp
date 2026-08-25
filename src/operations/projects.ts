@@ -3,8 +3,58 @@
  */
 import { plankaClient } from "../client.js";
 import { Project, Board, List } from "../schemas/entities.js";
-import { ProjectsResponse, ProjectsIncludedSchema } from "../schemas/responses.js";
+import {
+  ProjectsResponse,
+  ProjectsIncludedSchema,
+  ProjectResponse,
+} from "../schemas/responses.js";
+import {
+  CreateProjectSchema,
+  UpdateProjectSchema,
+  CreateProjectInput,
+  UpdateProjectInput,
+} from "../schemas/requests.js";
 import { getBoard } from "./boards.js";
+
+/**
+ * Create a project.
+ * POST /projects — type is required by the API ("private" by default here).
+ */
+export async function createProject(
+  input: CreateProjectInput
+): Promise<Project> {
+  const validated = CreateProjectSchema.parse(input);
+
+  const response = await plankaClient.post<unknown>("/api/projects", {
+    name: validated.name,
+    type: validated.type,
+    ...(validated.description !== undefined && {
+      description: validated.description,
+    }),
+  });
+
+  const parsed = ProjectResponse.parse(response);
+  return parsed.item;
+}
+
+/**
+ * Update a project's name or description.
+ * PATCH /projects/{id}
+ */
+export async function updateProject(
+  projectId: string,
+  input: UpdateProjectInput
+): Promise<Project> {
+  const validated = UpdateProjectSchema.parse(input);
+
+  const response = await plankaClient.patch<unknown>(
+    `/api/projects/${projectId}`,
+    validated
+  );
+
+  const parsed = ProjectResponse.parse(response);
+  return parsed.item;
+}
 
 /**
  * Full project structure with boards and (optionally) lists.
