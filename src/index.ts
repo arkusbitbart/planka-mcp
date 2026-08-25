@@ -65,7 +65,7 @@ async function main() {
           content: [
             {
               type: "text",
-              text: `Configuration error: ${error.message}\n\nRequired environment variables:\n- PLANKA_BASE_URL\n- PLANKA_AGENT_EMAIL\n- PLANKA_AGENT_PASSWORD`,
+              text: `Configuration error: ${error.message}\n\nRequired environment variables:\n- PLANKA_BASE_URL\n- PLANKA_API_KEY (recommended)\n  or PLANKA_AGENT_EMAIL + PLANKA_AGENT_PASSWORD`,
             },
           ],
           isError: true,
