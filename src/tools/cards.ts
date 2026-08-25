@@ -7,6 +7,7 @@ import {
   updateCard,
   moveCard,
   deleteCard,
+  duplicateCard,
   resolveListPosition,
 } from "../operations/cards.js";
 import { createTasks } from "../operations/tasks.js";
@@ -199,10 +200,16 @@ export const getCardTool = {
           isCompleted: details.card.isCompleted,
           createdAt: details.card.createdAt,
         },
+        taskLists: details.taskLists.map((tl) => ({
+          id: tl.id,
+          name: tl.name,
+        })),
         tasks: details.tasks.map((t) => ({
           id: t.id,
+          taskListId: t.taskListId,
           name: t.name,
           isCompleted: t.isCompleted,
+          ...(t.assigneeUserId && { assigneeUserId: t.assigneeUserId }),
         })),
         comments: details.comments.map((c) => ({
           id: c.id,
@@ -474,10 +481,86 @@ export const deleteCardTool = {
   },
 };
 
+/**
+ * Tool: planka_duplicate_card
+ * Duplicate a card, optionally into another list or with a new name.
+ */
+export const duplicateCardTool = {
+  name: "planka_duplicate_card",
+  description:
+    "Duplicate a card including its content. Optionally give the copy a new name, target list, or position.",
+  annotations: {
+    readOnlyHint: false,
+    destructiveHint: false,
+    idempotentHint: false,
+  },
+  inputSchema: {
+    type: "object" as const,
+    properties: {
+      cardId: {
+        type: "string",
+        description: "The card ID to duplicate",
+      },
+      name: {
+        type: "string",
+        description: "Optional: name for the copy (default: same as original)",
+      },
+      listId: {
+        type: "string",
+        description: "Optional: list to place the copy in (default: same list)",
+      },
+      position: {
+        type: "number",
+        description: "Optional: numeric position for the copy",
+      },
+    },
+    required: ["cardId"],
+  },
+  handler: async (params: {
+    cardId: string;
+    name?: string;
+    listId?: string;
+    position?: number;
+  }) => {
+    try {
+      const card = await duplicateCard(params);
+
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: JSON.stringify(
+              {
+                success: true,
+                card: {
+                  id: card.id,
+                  name: card.name,
+                  listId: card.listId,
+                },
+              },
+              null,
+              2
+            ),
+          },
+        ],
+      };
+    } catch (error) {
+      if (error instanceof PlankaError) {
+        return {
+          content: [{ type: "text" as const, text: `Error: ${error.message}` }],
+          isError: true,
+        };
+      }
+      throw error;
+    }
+  },
+};
+
 export const cardTools = [
   createCardTool,
   getCardTool,
   updateCardTool,
   moveCardTool,
   deleteCardTool,
+  duplicateCardTool,
 ];

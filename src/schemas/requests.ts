@@ -46,8 +46,17 @@ export const UpdateTaskSchema = z.object({
   name: z.string().min(1).optional(),
   isCompleted: z.boolean().optional(),
   position: z.number().optional(),
+  assigneeUserId: z.string().nullable().optional(),
 });
 export type UpdateTaskInput = z.input<typeof UpdateTaskSchema>;
+
+export const UpdateTaskListSchema = z.object({
+  name: z.string().min(1).optional(),
+  position: z.number().optional(),
+  showOnFrontOfCard: z.boolean().optional(),
+  hideCompletedTasks: z.boolean().optional(),
+});
+export type UpdateTaskListInput = z.input<typeof UpdateTaskListSchema>;
 
 export const BatchCreateTasksSchema = z.object({
   cardId: z.string(),
@@ -87,6 +96,29 @@ export const RemoveLabelFromCardSchema = z.object({
   labelId: z.string(),
 });
 export type RemoveLabelFromCardInput = z.input<typeof RemoveLabelFromCardSchema>;
+
+// Card duplication
+export const DuplicateCardSchema = z.object({
+  cardId: z.string(),
+  name: z.string().min(1).optional(),
+  listId: z.string().optional(),
+  position: z.number().optional(),
+});
+export type DuplicateCardInput = z.input<typeof DuplicateCardSchema>;
+
+// List actions
+export const SortListSchema = z.object({
+  listId: z.string(),
+  fieldName: z.enum(["name", "dueDate", "createdAt"]),
+  order: z.enum(["asc", "desc"]).optional(),
+});
+export type SortListInput = z.input<typeof SortListSchema>;
+
+export const MoveListCardsSchema = z.object({
+  listId: z.string(),
+  targetListId: z.string(),
+});
+export type MoveListCardsInput = z.input<typeof MoveListCardsSchema>;
 
 // Card membership requests
 export const AssignCardSchema = z.object({

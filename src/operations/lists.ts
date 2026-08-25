@@ -15,8 +15,12 @@ import { ListResponse, ListIncludedSchema } from "../schemas/responses.js";
 import {
   CreateListSchema,
   UpdateListSchema,
+  SortListSchema,
+  MoveListCardsSchema,
   CreateListInput,
   UpdateListInput,
+  SortListInput,
+  MoveListCardsInput,
 } from "../schemas/requests.js";
 
 /**
@@ -60,6 +64,37 @@ export async function updateList(
  */
 export async function deleteList(listId: string): Promise<void> {
   await plankaClient.delete(`/api/lists/${listId}`);
+}
+
+/**
+ * Sort a list's cards by a field.
+ * POST /lists/{id}/sort
+ */
+export async function sortList(input: SortListInput): Promise<void> {
+  const validated = SortListSchema.parse(input);
+  await plankaClient.post(`/api/lists/${validated.listId}/sort`, {
+    fieldName: validated.fieldName,
+    ...(validated.order && { order: validated.order }),
+  });
+}
+
+/**
+ * Move all cards of a list into another list.
+ * POST /lists/{id}/move-cards
+ */
+export async function moveListCards(input: MoveListCardsInput): Promise<void> {
+  const validated = MoveListCardsSchema.parse(input);
+  await plankaClient.post(`/api/lists/${validated.listId}/move-cards`, {
+    listId: validated.targetListId,
+  });
+}
+
+/**
+ * Clear a list: moves all its cards to the trash.
+ * POST /lists/{id}/clear
+ */
+export async function clearList(listId: string): Promise<void> {
+  await plankaClient.post(`/api/lists/${listId}/clear`, {});
 }
 
 /**

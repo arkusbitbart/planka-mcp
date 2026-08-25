@@ -17,9 +17,11 @@ import {
   CreateCardSchema,
   UpdateCardSchema,
   MoveCardSchema,
+  DuplicateCardSchema,
   CreateCardInput,
   UpdateCardInput,
   MoveCardInput,
+  DuplicateCardInput,
 } from "../schemas/requests.js";
 import {
   CardResponse,
@@ -173,4 +175,26 @@ export async function moveCard(input: MoveCardInput): Promise<Card> {
  */
 export async function deleteCard(cardId: string): Promise<void> {
   await plankaClient.delete(`/api/cards/${cardId}`);
+}
+
+/**
+ * Duplicate a card.
+ * POST /cards/{id}/duplicate — copies the card including its content;
+ * optional overrides for name, target list, and position.
+ */
+export async function duplicateCard(input: DuplicateCardInput): Promise<Card> {
+  const validated = DuplicateCardSchema.parse(input);
+
+  const body: Record<string, unknown> = {};
+  if (validated.name !== undefined) body.name = validated.name;
+  if (validated.listId !== undefined) body.listId = validated.listId;
+  if (validated.position !== undefined) body.position = validated.position;
+
+  const response = await plankaClient.post<unknown>(
+    `/api/cards/${validated.cardId}/duplicate`,
+    body
+  );
+
+  const parsed = CardResponse.parse(response);
+  return parsed.item;
 }

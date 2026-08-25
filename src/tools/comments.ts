@@ -3,6 +3,8 @@
  */
 import {
   createComment,
+  updateComment,
+  deleteComment,
   getCommentsForCard,
 } from "../operations/comments.js";
 import { PlankaError } from "../errors.js";
@@ -130,4 +132,125 @@ export const getCommentsTool = {
   },
 };
 
-export const commentTools = [addCommentTool, getCommentsTool];
+/**
+ * Tool: planka_update_comment
+ * Edit an existing comment.
+ */
+export const updateCommentTool = {
+  name: "planka_update_comment",
+  description:
+    "Edit the text of an existing comment. Get comment IDs from planka_get_comments.",
+  annotations: {
+    readOnlyHint: false,
+    destructiveHint: false,
+    idempotentHint: true,
+  },
+  inputSchema: {
+    type: "object" as const,
+    properties: {
+      commentId: {
+        type: "string",
+        description: "The comment ID",
+      },
+      text: {
+        type: "string",
+        description: "New comment text (markdown supported)",
+      },
+    },
+    required: ["commentId", "text"],
+  },
+  handler: async (params: { commentId: string; text: string }) => {
+    try {
+      const comment = await updateComment(params.commentId, {
+        text: params.text,
+      });
+
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: JSON.stringify(
+              {
+                success: true,
+                comment: {
+                  id: comment.id,
+                  text: comment.text,
+                },
+              },
+              null,
+              2
+            ),
+          },
+        ],
+      };
+    } catch (error) {
+      if (error instanceof PlankaError) {
+        return {
+          content: [{ type: "text" as const, text: `Error: ${error.message}` }],
+          isError: true,
+        };
+      }
+      throw error;
+    }
+  },
+};
+
+/**
+ * Tool: planka_delete_comment
+ * Delete a comment.
+ */
+export const deleteCommentTool = {
+  name: "planka_delete_comment",
+  description: "Permanently delete a comment.",
+  annotations: {
+    readOnlyHint: false,
+    destructiveHint: true,
+    idempotentHint: true,
+  },
+  inputSchema: {
+    type: "object" as const,
+    properties: {
+      commentId: {
+        type: "string",
+        description: "The comment ID to delete",
+      },
+    },
+    required: ["commentId"],
+  },
+  handler: async (params: { commentId: string }) => {
+    try {
+      await deleteComment(params.commentId);
+
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: JSON.stringify(
+              {
+                success: true,
+                message: `Comment ${params.commentId} deleted`,
+              },
+              null,
+              2
+            ),
+          },
+        ],
+      };
+    } catch (error) {
+      if (error instanceof PlankaError) {
+        return {
+          content: [{ type: "text" as const, text: `Error: ${error.message}` }],
+          isError: true,
+        };
+      }
+      throw error;
+    }
+  },
+};
+
+export const commentTools = [
+  addCommentTool,
+  getCommentsTool,
+  updateCommentTool,
+  deleteCommentTool,
+];
