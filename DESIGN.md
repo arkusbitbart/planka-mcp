@@ -1,3 +1,13 @@
+> **⚠️ Historisches Dokument — nicht aktuell.**
+> Dies ist das ursprüngliche Design-Dokument des Originalprojekts
+> [gogogadgetbytes/planka-mcp](https://github.com/gogogadgetbytes/planka-mcp)
+> (Stand v1.0.0: 15 Tools, nur E-Mail/Passwort-Authentifizierung). Der Fork
+> [arkusbitbart/planka-mcp](https://github.com/arkusbitbart/planka-mcp) weicht
+> inzwischen erheblich davon ab (32 Tools, API-Key-Auth, geänderte Schemas und
+> Ausgabeformate). **Maßgeblich für den aktuellen Stand sind der Code in
+> `src/` und die README** — dieses Dokument wird nicht gepflegt und dient nur
+> noch als Architektur-Begründung des Originals.
+
 # PLANKA MCP Server - Design Document
 
 A clean-room MCP server for PLANKA 2.0, purpose-built for Claude agent workflows.
