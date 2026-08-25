@@ -100,6 +100,11 @@ export const CardIncludedSchema = z
 export const ListIncludedSchema = z
   .object({
     cards: z.array(CardSchema).optional(),
+    users: z.array(UserSchema).optional(),
+    cardMemberships: z.array(CardMembershipSchema).optional(),
+    cardLabels: z.array(CardLabelSchema).optional(),
+    taskLists: z.array(TaskListSchema).optional(),
+    tasks: z.array(TaskSchema).optional(),
   })
   .passthrough();
 
