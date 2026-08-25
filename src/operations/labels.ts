@@ -13,7 +13,8 @@ import {
 } from "../schemas/requests.js";
 import { LabelResponse, CardLabelResponse } from "../schemas/responses.js";
 import { PlankaError } from "../errors.js";
-import { getCard } from "./cards.js";
+import { getCard, CardDetails } from "./cards.js";
+import { getBoard } from "./boards.js";
 
 /**
  * Create a new label on a board.
@@ -115,6 +116,50 @@ export async function removeLabelFromCard(
     }
     throw error;
   }
+}
+
+/**
+ * A card's label with resolved metadata.
+ */
+export interface ResolvedCardLabel {
+  id: string;
+  name: string | null;
+  color: string | null;
+}
+
+/**
+ * Resolves a card's labels to id/name/color.
+ *
+ * GET /cards/{id} only includes the cardLabels junction records, not the
+ * label metadata — that lives in the board response. If the card details
+ * don't carry the metadata (the normal case on live instances), one
+ * GET /boards/{boardId} resolves it; cards without labels cost nothing.
+ */
+export async function resolveCardLabels(
+  details: CardDetails
+): Promise<ResolvedCardLabel[]> {
+  if (details.cardLabels.length === 0) {
+    return [];
+  }
+
+  let labelById = new Map(details.labels.map((l) => [l.id, l]));
+  const allResolved = details.cardLabels.every((cl) =>
+    labelById.has(cl.labelId)
+  );
+
+  if (!allResolved) {
+    const board = await getBoard(details.card.boardId);
+    labelById = new Map(board.labels.map((l) => [l.id, l]));
+  }
+
+  return details.cardLabels.map((cl) => {
+    const label = labelById.get(cl.labelId);
+    return {
+      id: cl.labelId,
+      name: label?.name ?? null,
+      color: label?.color ?? null,
+    };
+  });
 }
 
 /**

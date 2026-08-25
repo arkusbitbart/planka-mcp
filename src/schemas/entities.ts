@@ -78,7 +78,7 @@ export const ProjectSchema = z.object({
   name: z.string(),
   background: z.string().nullable().optional(),
   backgroundImage: z.string().nullable().optional(),
-  createdAt: z.string(),
+  createdAt: z.string().nullable().optional(),
   updatedAt: z.string().nullable().optional(),
 });
 export type Project = z.infer<typeof ProjectSchema>;
@@ -89,7 +89,7 @@ export const BoardSchema = z.object({
   projectId: z.string(),
   name: z.string(),
   position: z.number(),
-  createdAt: z.string(),
+  createdAt: z.string().nullable().optional(),
   updatedAt: z.string().nullable().optional(),
 });
 export type Board = z.infer<typeof BoardSchema>;
@@ -100,7 +100,7 @@ export const ListSchema = z.object({
   boardId: z.string(),
   name: z.string().nullable(), // Can be null for archive/trash
   position: z.number().nullable(),
-  createdAt: z.string(),
+  createdAt: z.string().nullable().optional(),
   updatedAt: z.string().nullable().optional(),
 });
 export type List = z.infer<typeof ListSchema>;
@@ -118,7 +118,7 @@ export const CardSchema = z.object({
   dueDate: z.string().nullable().optional(),
   isDueDateCompleted: z.boolean().optional(),
   isCompleted: z.boolean().optional(),
-  createdAt: z.string(),
+  createdAt: z.string().nullable().optional(),
   updatedAt: z.string().nullable().optional(),
 });
 export type Card = z.infer<typeof CardSchema>;
@@ -130,7 +130,7 @@ export const TaskListSchema = z.object({
   name: z.string(),
   position: z.number(),
   showOnFrontOfCard: z.boolean().optional(),
-  createdAt: z.string(),
+  createdAt: z.string().nullable().optional(),
   updatedAt: z.string().nullable().optional(),
 });
 export type TaskList = z.infer<typeof TaskListSchema>;
@@ -143,7 +143,7 @@ export const TaskSchema = z.object({
   position: z.number(),
   isCompleted: z.boolean(),
   assigneeUserId: z.string().nullable().optional(),
-  createdAt: z.string(),
+  createdAt: z.string().nullable().optional(),
   updatedAt: z.string().nullable().optional(),
 });
 export type Task = z.infer<typeof TaskSchema>;
@@ -155,7 +155,7 @@ export const LabelSchema = z.object({
   name: z.string().nullable(),
   color: LabelColorSchema,
   position: z.number(),
-  createdAt: z.string(),
+  createdAt: z.string().nullable().optional(),
   updatedAt: z.string().nullable().optional(),
 });
 export type Label = z.infer<typeof LabelSchema>;
@@ -165,7 +165,7 @@ export const CardLabelSchema = z.object({
   id: z.string(),
   cardId: z.string(),
   labelId: z.string(),
-  createdAt: z.string(),
+  createdAt: z.string().nullable().optional(),
   updatedAt: z.string().nullable().optional(),
 });
 export type CardLabel = z.infer<typeof CardLabelSchema>;
@@ -199,7 +199,7 @@ export const CommentSchema = z.object({
   cardId: z.string(),
   userId: z.string(),
   text: z.string(),
-  createdAt: z.string(),
+  createdAt: z.string().nullable().optional(),
   updatedAt: z.string().nullable().optional(),
 });
 export type Comment = z.infer<typeof CommentSchema>;
@@ -233,14 +233,17 @@ export const NotificationSchema = z.object({
 });
 export type Notification = z.infer<typeof NotificationSchema>;
 
-// Attachment schema
+// Attachment schema.
+// Per the spec there is no top-level url: type is "file" | "link" and the
+// link URL (or file metadata) lives in the free-form data object.
 export const AttachmentSchema = z.object({
   id: z.string(),
   cardId: z.string(),
-  creatorUserId: z.string().optional(),
+  creatorUserId: z.string().nullable().optional(),
+  type: z.string().optional(),
+  data: z.record(z.any()).nullable().optional(),
   name: z.string(),
-  url: z.string().optional(),
-  createdAt: z.string(),
+  createdAt: z.string().nullable().optional(),
   updatedAt: z.string().nullable().optional(),
 });
 export type Attachment = z.infer<typeof AttachmentSchema>;
