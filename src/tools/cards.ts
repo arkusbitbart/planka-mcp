@@ -11,7 +11,7 @@ import {
   resolveListPosition,
 } from "../operations/cards.js";
 import { createTasks } from "../operations/tasks.js";
-import { addLabelToCard } from "../operations/labels.js";
+import { addLabelToCard, resolveCardLabels } from "../operations/labels.js";
 import { getCommentsForCard } from "../operations/comments.js";
 import { PlankaError } from "../errors.js";
 
@@ -196,6 +196,10 @@ export const getCardTool = {
       const commentUserById = new Map(
         commentsPage.users.map((u) => [u.id, u])
       );
+      // Label metadata is also missing from the card response; this needs
+      // the card's boardId, so it can only run after the card fetch — and
+      // only costs a request when the card actually has labels.
+      const labels = await resolveCardLabels(details);
 
       const formatted = {
         card: {
@@ -225,14 +229,7 @@ export const getCardTool = {
           text: c.text,
           createdAt: c.createdAt,
         })),
-        labels: details.cardLabels.map((cl) => {
-          const label = details.labels.find((l) => l.id === cl.labelId);
-          return {
-            id: cl.labelId,
-            name: label?.name,
-            color: label?.color,
-          };
-        }),
+        labels,
         // userId included so planka_unassign_card can be called directly
         assignees: details.cardMemberships.map((cm) => {
           const user = details.users.find((u) => u.id === cm.userId);
@@ -244,6 +241,8 @@ export const getCardTool = {
         attachments: details.attachments.map((a) => ({
           id: a.id,
           name: a.name,
+          ...(a.type && { type: a.type }),
+          ...(typeof a.data?.url === "string" && { url: a.data.url }),
         })),
       };
 
