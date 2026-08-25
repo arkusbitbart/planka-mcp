@@ -80,7 +80,8 @@ export const addCommentTool = {
  */
 export const getCommentsTool = {
   name: "planka_get_comments",
-  description: "Get all comments on a card.",
+  description:
+    "Get comments on a card (recent first). For older entries, pass the beforeId returned by the previous call.",
   annotations: {
     readOnlyHint: true,
     destructiveHint: false,
@@ -93,12 +94,19 @@ export const getCommentsTool = {
         type: "string",
         description: "The card ID",
       },
+      beforeId: {
+        type: "string",
+        description:
+          "Pagination: only return comments older than this comment ID",
+      },
     },
     required: ["cardId"],
   },
-  handler: async (params: { cardId: string }) => {
+  handler: async (params: { cardId: string; beforeId?: string }) => {
     try {
-      const comments = await getCommentsForCard(params.cardId);
+      const page = await getCommentsForCard(params.cardId, params.beforeId);
+      const userById = new Map(page.users.map((u) => [u.id, u]));
+      const lastId = page.comments[page.comments.length - 1]?.id;
 
       return {
         content: [
@@ -107,12 +115,17 @@ export const getCommentsTool = {
             text: JSON.stringify(
               {
                 cardId: params.cardId,
-                commentCount: comments.length,
-                comments: comments.map((c) => ({
+                commentCount: page.comments.length,
+                comments: page.comments.map((c) => ({
                   id: c.id,
+                  author: userById.get(c.userId)?.name ?? c.userId,
                   text: c.text,
                   createdAt: c.createdAt,
                 })),
+                ...(lastId && {
+                  beforeId: lastId,
+                  note: "Pass beforeId to fetch older comments.",
+                }),
               },
               null,
               2

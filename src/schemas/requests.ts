@@ -2,7 +2,12 @@
  * Request body schemas for PLANKA API operations.
  */
 import { z } from "zod";
-import { CardTypeSchema, LabelColorSchema } from "./entities.js";
+import {
+  CardTypeSchema,
+  LabelColorSchema,
+  ListTypeSchema,
+  ListColorSchema,
+} from "./entities.js";
 
 // Card requests
 export const CreateCardSchema = z.object({
@@ -97,12 +102,15 @@ export const RemoveLabelFromCardSchema = z.object({
 });
 export type RemoveLabelFromCardInput = z.input<typeof RemoveLabelFromCardSchema>;
 
-// Card duplication
+// Card duplication.
+// position looks optional in the spec (no required array there), but a live
+// PLANKA 2.2.1 rejects the request with "Position must be present" — so it
+// always gets the standard default.
 export const DuplicateCardSchema = z.object({
   cardId: z.string(),
   name: z.string().min(1).optional(),
   listId: z.string().optional(),
-  position: z.number().optional(),
+  position: z.number().optional().default(65536),
 });
 export type DuplicateCardInput = z.input<typeof DuplicateCardSchema>;
 
@@ -189,9 +197,11 @@ export const UpdateCommentSchema = z.object({
 export type UpdateCommentInput = z.input<typeof UpdateCommentSchema>;
 
 // List requests
+// POST /boards/{boardId}/lists requires type, position, and name
 export const CreateListSchema = z.object({
   boardId: z.string(),
   name: z.string().min(1, "List name required"),
+  type: ListTypeSchema.optional().default("active"),
   position: z.number().optional().default(65536),
 });
 export type CreateListInput = z.input<typeof CreateListSchema>;
@@ -199,5 +209,8 @@ export type CreateListInput = z.input<typeof CreateListSchema>;
 export const UpdateListSchema = z.object({
   name: z.string().min(1).optional(),
   position: z.number().optional(),
+  type: ListTypeSchema.optional(),
+  color: ListColorSchema.nullable().optional(),
+  boardId: z.string().optional(),
 });
 export type UpdateListInput = z.input<typeof UpdateListSchema>;

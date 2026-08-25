@@ -6,7 +6,6 @@ import {
   Card,
   TaskList,
   Task,
-  Comment,
   Label,
   CardLabel,
   Attachment,
@@ -70,11 +69,12 @@ export async function resolveListPosition(
 /**
  * Card details with all related entities.
  */
+// Note: comments are NOT included in GET /cards/{id}; they come from the
+// dedicated GET /cards/{cardId}/comments endpoint (operations/comments.ts).
 export interface CardDetails {
   card: Card;
   taskLists: TaskList[];
   tasks: Task[];
-  comments: Comment[];
   labels: Label[];
   cardLabels: CardLabel[];
   attachments: Attachment[];
@@ -117,9 +117,6 @@ export async function getCard(cardId: string): Promise<CardDetails> {
     card: parsed.item,
     taskLists: (included.taskLists || []).sort((a, b) => a.position - b.position),
     tasks: (included.tasks || []).sort((a, b) => a.position - b.position),
-    comments: (included.comments || []).sort(
-      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    ),
     labels: included.labels || [],
     cardLabels: included.cardLabels || [],
     attachments: included.attachments || [],
@@ -180,15 +177,16 @@ export async function deleteCard(cardId: string): Promise<void> {
 /**
  * Duplicate a card.
  * POST /cards/{id}/duplicate — copies the card including its content;
- * optional overrides for name, target list, and position.
+ * optional overrides for name and target list. position is always sent:
+ * live instances require it ("Position must be present") even though the
+ * spec marks nothing as required for this endpoint.
  */
 export async function duplicateCard(input: DuplicateCardInput): Promise<Card> {
   const validated = DuplicateCardSchema.parse(input);
 
-  const body: Record<string, unknown> = {};
+  const body: Record<string, unknown> = { position: validated.position };
   if (validated.name !== undefined) body.name = validated.name;
   if (validated.listId !== undefined) body.listId = validated.listId;
-  if (validated.position !== undefined) body.position = validated.position;
 
   const response = await plankaClient.post<unknown>(
     `/api/cards/${validated.cardId}/duplicate`,

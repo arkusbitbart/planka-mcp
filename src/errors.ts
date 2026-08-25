@@ -67,7 +67,13 @@ export class PlankaNetworkError extends PlankaError {
 const NOT_FOUND_HINTS: Record<string, { name: string; hint: string }> = {
   projects: {
     name: "Project",
-    hint: "Get valid project IDs from planka_get_structure.",
+    // PLANKA answers project-level calls without permission with 404, not
+    // 403 — so this 404 can also mean missing rights, not a wrong ID.
+    hint:
+      "Either the ID is wrong (planka_get_structure lists valid project IDs), " +
+      "or the user lacks project manager rights on this project — PLANKA " +
+      "answers 404 instead of 403 here, and board editor access is not " +
+      "enough for project-level calls.",
   },
   boards: {
     name: "Board",

@@ -10,6 +10,9 @@ import {
   clearList,
 } from "../operations/lists.js";
 import { PlankaError } from "../errors.js";
+import { ListColorSchema } from "../schemas/entities.js";
+
+const validListColors = ListColorSchema.options.join(", ");
 
 /**
  * Tool: planka_manage_lists
@@ -45,7 +48,21 @@ export const manageListsTool = {
       },
       position: {
         type: "number",
-        description: "List position",
+        description: "List position (default 65536 for create)",
+      },
+      type: {
+        type: "string",
+        enum: ["active", "closed"],
+        description:
+          'List type: "active" (default for create) or "closed" (done column)',
+      },
+      color: {
+        type: ["string", "null"],
+        description: `List color (update only, null to clear). Valid colors: ${validListColors}`,
+      },
+      targetBoardId: {
+        type: "string",
+        description: "Update only: move the list to this board",
       },
     },
     required: ["action"],
@@ -56,6 +73,9 @@ export const manageListsTool = {
     listId?: string;
     name?: string;
     position?: number;
+    type?: "active" | "closed";
+    color?: string | null;
+    targetBoardId?: string;
   }) => {
     try {
       switch (params.action) {
@@ -86,6 +106,7 @@ export const manageListsTool = {
           const list = await createList({
             boardId: params.boardId,
             name: params.name,
+            type: params.type,
             position: params.position,
           });
 
@@ -126,6 +147,26 @@ export const manageListsTool = {
           const updates: Record<string, unknown> = {};
           if (params.name !== undefined) updates.name = params.name;
           if (params.position !== undefined) updates.position = params.position;
+          if (params.type !== undefined) updates.type = params.type;
+          if (params.targetBoardId !== undefined)
+            updates.boardId = params.targetBoardId;
+          if (params.color !== undefined) {
+            if (params.color !== null) {
+              const colorParse = ListColorSchema.safeParse(params.color);
+              if (!colorParse.success) {
+                return {
+                  content: [
+                    {
+                      type: "text" as const,
+                      text: `Error: Invalid list color '${params.color}'. Valid colors: ${validListColors}`,
+                    },
+                  ],
+                  isError: true,
+                };
+              }
+            }
+            updates.color = params.color;
+          }
 
           const list = await updateList(params.listId, updates);
 

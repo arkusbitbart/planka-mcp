@@ -96,11 +96,11 @@ export const BoardIncludedSchema = z
   .passthrough(); // Allow additional fields
 
 // Included entities schema for card details
+// (comments are not part of this response; see GET /cards/{cardId}/comments)
 export const CardIncludedSchema = z
   .object({
     taskLists: z.array(TaskListSchema).optional(),
     tasks: z.array(TaskSchema).optional(),
-    comments: z.array(CommentSchema).optional(),
     labels: z.array(LabelSchema).optional(),
     cardLabels: z.array(CardLabelSchema).optional(),
     attachments: z.array(AttachmentSchema).optional(),

@@ -40,6 +40,25 @@ export const LabelColorSchema = z.enum([
 ]);
 export type LabelColor = z.infer<typeof LabelColorSchema>;
 
+// List types - PLANKA 2.x (archive/trash are system lists, not creatable)
+export const ListTypeSchema = z.enum(["active", "closed"]);
+export type ListType = z.infer<typeof ListTypeSchema>;
+
+// List colors - distinct from label colors
+export const ListColorSchema = z.enum([
+  "berry-red",
+  "pumpkin-orange",
+  "lagoon-blue",
+  "pink-tulip",
+  "light-mud",
+  "orange-peel",
+  "bright-moss",
+  "antique-blue",
+  "dark-granite",
+  "turquoise-sea",
+]);
+export type ListColor = z.infer<typeof ListColorSchema>;
+
 // User schema
 export const UserSchema = z.object({
   id: z.string(),
