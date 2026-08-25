@@ -57,12 +57,15 @@ export const createCardTool = {
           "Due date, ISO 8601 with timezone, e.g. 2026-08-31T17:00:00.000Z",
       },
       position: {
-        anyOf: [
-          { type: "string", enum: ["top", "bottom"] },
-          { type: "number" },
-        ],
+        type: "string",
+        enum: ["top", "bottom"],
         description:
-          'Where to insert the card: "top" (start of the list), "bottom" (after the current last card), or a numeric position (lower number = higher up). Omit to keep the default (65536).',
+          'Where to insert the card: "top" (start of the list) or "bottom" (after the current last card). For an exact numeric position use positionNumber instead. Omit both to keep the default (65536).',
+      },
+      positionNumber: {
+        type: "number",
+        description:
+          "Exact numeric position (lower number = higher up). Do not combine with position.",
       },
       labelIds: {
         type: "array",
@@ -78,29 +81,44 @@ export const createCardTool = {
     description?: string;
     tasks?: string[];
     dueDate?: string;
-    position?: string | number;
+    position?: string;
+    positionNumber?: number | string;
     labelIds?: string[];
   }) => {
     try {
+      const fail = (text: string) => ({
+        content: [{ type: "text" as const, text }],
+        isError: true,
+      });
+
+      if (params.position !== undefined && params.positionNumber !== undefined) {
+        return fail(
+          "Error: Pass either position or positionNumber, not both."
+        );
+      }
       if (
-        typeof params.position === "string" &&
+        params.position !== undefined &&
         params.position !== "top" &&
         params.position !== "bottom"
       ) {
-        return {
-          content: [
-            {
-              type: "text" as const,
-              text: `Error: Invalid position '${params.position}'. Use "top", "bottom", or a number.`,
-            },
-          ],
-          isError: true,
-        };
+        return fail(
+          `Error: Invalid position '${params.position}'. Use "top" or "bottom", or positionNumber for an exact number.`
+        );
+      }
+      // Tolerate a numeric string from clients that cannot send numbers
+      let positionNumber: number | undefined;
+      if (params.positionNumber !== undefined) {
+        positionNumber = Number(params.positionNumber);
+        if (!Number.isFinite(positionNumber)) {
+          return fail(
+            `Error: Invalid positionNumber '${params.positionNumber}'. Pass a number.`
+          );
+        }
       }
 
       const position = await resolveListPosition(
         params.listId,
-        params.position as "top" | "bottom" | number | undefined
+        positionNumber ?? (params.position as "top" | "bottom" | undefined)
       );
 
       // Create the card
@@ -301,46 +319,24 @@ export const updateCardTool = {
         description: "New card title",
       },
       description: {
-        anyOf: [{ type: "string" }, { type: "null" }],
-        description: "New description (string; null to clear)",
+        type: "string",
+        description: 'New description; pass "" (empty string) to clear it',
       },
       dueDate: {
-        anyOf: [{ type: "string" }, { type: "null" }],
+        type: "string",
         description:
-          "New due date, ISO 8601 with timezone, e.g. 2026-08-31T17:00:00.000Z (null to clear)",
+          'New due date, ISO 8601 with timezone, e.g. 2026-08-31T17:00:00.000Z; pass "" or "none" to clear it',
       },
       isDueCompleted: {
-        anyOf: [{ type: "boolean" }, { type: "null" }],
+        type: "boolean",
         description:
-          "Check/uncheck the due date as completed — pass a boolean, not a string (the API field is isDueCompleted; there is no general card completion flag)",
+          "Check (true) or uncheck (false) the due date as completed (the API field is isDueCompleted; there is no general card completion flag)",
       },
       stopwatch: {
-        anyOf: [
-          {
-            type: "string",
-            enum: ["start", "stop", "reset"],
-            description:
-              "start = begin/resume timing; stop = pause, adds elapsed time to the total; reset = remove the stopwatch",
-          },
-          {
-            type: "object",
-            properties: {
-              startedAt: {
-                anyOf: [{ type: "string" }, { type: "null" }],
-                description:
-                  "ISO 8601 start time while running, null while paused",
-              },
-              total: {
-                type: "number",
-                description: "Accumulated time in seconds",
-              },
-            },
-            required: ["startedAt", "total"],
-          },
-          { type: "null", description: "Remove the stopwatch (same as reset)" },
-        ],
+        type: "string",
+        enum: ["start", "stop", "reset"],
         description:
-          'Time tracking: "start", "stop", "reset", null, or a raw {startedAt, total} object',
+          'Time tracking: "start" = begin/resume timing, "stop" = pause and add the elapsed time to the total, "reset" = remove the stopwatch',
       },
     },
     required: ["cardId"],
@@ -348,9 +344,9 @@ export const updateCardTool = {
   handler: async (params: {
     cardId: string;
     name?: string;
-    description?: string | null;
-    dueDate?: string | null;
-    isDueCompleted?: boolean | null;
+    description?: string;
+    dueDate?: string;
+    isDueCompleted?: boolean;
     stopwatch?: StopwatchInput;
   }) => {
     try {
@@ -364,7 +360,7 @@ export const updateCardTool = {
           content: [
             {
               type: "text" as const,
-              text: `Error: Invalid stopwatch value '${updates.stopwatch}'. Use "start", "stop", "reset", null, or {startedAt, total}.`,
+              text: `Error: Invalid stopwatch value '${updates.stopwatch}'. Use "start", "stop", or "reset".`,
             },
           ],
           isError: true,

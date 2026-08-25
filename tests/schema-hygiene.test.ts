@@ -1,16 +1,17 @@
 /**
  * Input schema hygiene for all tools.
  *
- * Live finding: MCP clients (Claude Desktop) drop properties whose JSON
- * Schema `type` is an array (e.g. ["boolean","null"]) — the model then
- * sees an untyped `{}`, guesses, and sends strings that the Zod layer
- * rejects ("Expected boolean, received string"). Unions must therefore
- * be expressed as `anyOf` with single-typed branches.
+ * Live findings (twice): MCP clients (Claude Desktop) mangle union-typed
+ * properties into {} during schema translation — both array-valued `type`
+ * (["boolean","null"]) and `anyOf`/`oneOf` unions arrived as untyped
+ * fields, the model guessed, and the Zod layer rejected the guess
+ * ("Expected boolean, received string").
  *
- * Every property must declare a usable type:
- *  - `type` as a single string, or
- *  - `anyOf`/`oneOf` whose every branch itself passes this check,
- * and every top-level property must carry a description.
+ * Rule: every property declares exactly one string `type` — no arrays,
+ * no anyOf, no oneOf, anywhere in the schema tree. Null semantics are
+ * expressed via sentinel values ("", "none") that the server translates,
+ * and the server parses leniently (string booleans/numbers are coerced).
+ * Every top-level property must carry a description.
  */
 import { describe, it, expect } from "vitest";
 import { allTools, attachmentTools } from "../src/tools/index.js";
@@ -24,49 +25,43 @@ interface SchemaNode {
   type?: unknown;
   anyOf?: unknown;
   oneOf?: unknown;
+  allOf?: unknown;
   items?: unknown;
   properties?: Record<string, unknown>;
   description?: unknown;
 }
 
-function assertTyped(node: SchemaNode, path: string): void {
-  const union = (node.anyOf ?? node.oneOf) as SchemaNode[] | undefined;
+function assertSingleTyped(node: SchemaNode, path: string): void {
+  expect(node.anyOf, `${path}: anyOf is forbidden (clients mangle unions)`)
+    .toBeUndefined();
+  expect(node.oneOf, `${path}: oneOf is forbidden (clients mangle unions)`)
+    .toBeUndefined();
+  expect(node.allOf, `${path}: allOf is forbidden`).toBeUndefined();
 
-  if (union !== undefined) {
-    expect(Array.isArray(union), `${path}: anyOf/oneOf must be an array`).toBe(
-      true
-    );
-    expect(union.length, `${path}: empty union`).toBeGreaterThan(0);
-    union.forEach((branch, i) => assertTyped(branch, `${path}.anyOf[${i}]`));
-    return;
-  }
-
-  // No union: type must be present and a plain string — arrays like
-  // ["boolean","null"] are exactly what clients mangle into {}.
   expect(node.type, `${path}: property has no type`).toBeDefined();
   expect(
     typeof node.type,
-    `${path}: type must be a single string, not ${JSON.stringify(node.type)}`
+    `${path}: type must be exactly one string, not ${JSON.stringify(node.type)}`
   ).toBe("string");
 
   if (node.type === "array") {
     expect(node.items, `${path}: array without items`).toBeDefined();
-    assertTyped(node.items as SchemaNode, `${path}.items`);
+    assertSingleTyped(node.items as SchemaNode, `${path}.items`);
   }
   if (node.type === "object" && node.properties) {
     for (const [key, child] of Object.entries(node.properties)) {
-      assertTyped(child as SchemaNode, `${path}.${key}`);
+      assertSingleTyped(child as SchemaNode, `${path}.${key}`);
     }
   }
 }
 
 describe("input schema hygiene", () => {
-  it("every property declares a single-string type (or a typed anyOf union)", () => {
+  it("every property declares exactly one string type — no unions of any spelling", () => {
     for (const tool of everyTool) {
       for (const [name, prop] of Object.entries(
         tool.inputSchema.properties ?? {}
       )) {
-        assertTyped(prop as SchemaNode, `${tool.name}.${name}`);
+        assertSingleTyped(prop as SchemaNode, `${tool.name}.${name}`);
       }
     }
   });

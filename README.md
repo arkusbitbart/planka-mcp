@@ -29,7 +29,8 @@ Derived from the git history since the fork point:
 - `planka_get_card` and `planka_get_board` show card assignees.
 - 404 errors name the missing resource and the tool that lists valid IDs.
 - `planka_create_card` accepts `position`: `"top"`, `"bottom"`, or a number; date fields document the expected ISO 8601 format.
-- Time tracking: `planka_update_card` drives the card stopwatch (`"start"`/`"stop"`/`"reset"` or a raw `{startedAt, total}`), and `planka_get_card` shows the elapsed time human-readably. The former `isCompleted` parameter was replaced by `isDueCompleted` — the API has no `isCompleted` field, so the old parameter was silently ignored.
+- Time tracking: `planka_update_card` drives the card stopwatch (`"start"`/`"stop"`/`"reset"`), and `planka_get_card` shows the elapsed time human-readably. The former `isCompleted` parameter was replaced by `isDueCompleted` — the API has no `isCompleted` field, so the old parameter was silently ignored.
+- Tool input schemas avoid JSON Schema unions entirely (clients mangle them into untyped fields): every property has exactly one type, clearing is expressed via `""`/`"none"` sentinels, and the server parses leniently (string booleans and numbers are coerced).
 - All tools carry MCP annotations (`readOnlyHint`/`destructiveHint`/`idempotentHint`) so clients can auto-approve read-only calls.
 
 **Security**

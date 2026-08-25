@@ -9,12 +9,37 @@ import {
   ListColorSchema,
 } from "./entities.js";
 
+// Tool input schemas avoid JSON Schema unions (clients mangle them), so
+// the server parses leniently instead: the server knows what it wants,
+// the client guesses.
+
+/** Accepts "true"/"false" strings alongside real booleans. */
+const lenientBoolean = z.preprocess(
+  (v) => (v === "true" ? true : v === "false" ? false : v),
+  z.boolean()
+);
+
+/** Accepts numeric strings alongside real numbers. */
+const lenientNumber = z.preprocess(
+  (v) =>
+    typeof v === "string" && v.trim() !== "" && Number.isFinite(Number(v))
+      ? Number(v)
+      : v,
+  z.number()
+);
+
+/** Clients that cannot express null send "" instead. */
+const emptyToNull = (v: unknown) => (v === "" ? null : v);
+
+/** For ID/date fields, "" and "none" both mean null. */
+const noneToNull = (v: unknown) => (v === "" || v === "none" ? null : v);
+
 // Card requests
 export const CreateCardSchema = z.object({
   listId: z.string(),
   name: z.string().min(1, "Card name required"),
   description: z.string().optional(),
-  position: z.number().optional().default(65536),
+  position: lenientNumber.optional().default(65536),
   type: CardTypeSchema.optional().default("project"), // Required for PLANKA 2.0
   dueDate: z.string().optional(),
 });
@@ -22,10 +47,17 @@ export type CreateCardInput = z.input<typeof CreateCardSchema>;
 
 export const UpdateCardSchema = z.object({
   name: z.string().min(1).optional(),
-  description: z.string().nullable().optional(),
-  dueDate: z.string().nullable().optional(),
+  // "" clears the description (clients cannot express null)
+  description: z.preprocess(emptyToNull, z.string().nullable()).optional(),
+  // "" or "none" clears the due date
+  dueDate: z.preprocess(noneToNull, z.string().nullable()).optional(),
   // Per spec the PATCH field is isDueCompleted (there is no isCompleted)
-  isDueCompleted: z.boolean().nullable().optional(),
+  isDueCompleted: z
+    .preprocess(
+      (v) => (v === "true" ? true : v === "false" ? false : v),
+      z.boolean().nullable()
+    )
+    .optional(),
   stopwatch: z
     .object({
       startedAt: z.string().nullable(),
@@ -35,14 +67,14 @@ export const UpdateCardSchema = z.object({
     .optional(),
   listId: z.string().optional(), // For moving cards
   boardId: z.string().optional(), // For moving across boards
-  position: z.number().optional(),
+  position: lenientNumber.optional(),
 });
 export type UpdateCardInput = z.input<typeof UpdateCardSchema>;
 
 export const MoveCardSchema = z.object({
   cardId: z.string(),
   listId: z.string(),
-  position: z.number().optional().default(65536),
+  position: lenientNumber.optional().default(65536),
   boardId: z.string().optional(),
 });
 export type MoveCardInput = z.input<typeof MoveCardSchema>;
@@ -51,23 +83,24 @@ export type MoveCardInput = z.input<typeof MoveCardSchema>;
 export const CreateTaskSchema = z.object({
   cardId: z.string(),
   name: z.string().min(1, "Task name required"),
-  position: z.number().optional().default(65536),
+  position: lenientNumber.optional().default(65536),
 });
 export type CreateTaskInput = z.input<typeof CreateTaskSchema>;
 
 export const UpdateTaskSchema = z.object({
   name: z.string().min(1).optional(),
-  isCompleted: z.boolean().optional(),
-  position: z.number().optional(),
-  assigneeUserId: z.string().nullable().optional(),
+  isCompleted: lenientBoolean.optional(),
+  position: lenientNumber.optional(),
+  // "" or "none" unassigns
+  assigneeUserId: z.preprocess(noneToNull, z.string().nullable()).optional(),
 });
 export type UpdateTaskInput = z.input<typeof UpdateTaskSchema>;
 
 export const UpdateTaskListSchema = z.object({
   name: z.string().min(1).optional(),
-  position: z.number().optional(),
-  showOnFrontOfCard: z.boolean().optional(),
-  hideCompletedTasks: z.boolean().optional(),
+  position: lenientNumber.optional(),
+  showOnFrontOfCard: lenientBoolean.optional(),
+  hideCompletedTasks: lenientBoolean.optional(),
 });
 export type UpdateTaskListInput = z.input<typeof UpdateTaskListSchema>;
 
@@ -76,7 +109,7 @@ export const BatchCreateTasksSchema = z.object({
   tasks: z.array(
     z.object({
       name: z.string().min(1),
-      position: z.number().optional(),
+      position: lenientNumber.optional(),
     })
   ),
 });
@@ -87,14 +120,14 @@ export const CreateLabelSchema = z.object({
   boardId: z.string(),
   name: z.string().min(1, "Label name required"),
   color: LabelColorSchema,
-  position: z.number().optional().default(65536),
+  position: lenientNumber.optional().default(65536),
 });
 export type CreateLabelInput = z.input<typeof CreateLabelSchema>;
 
 export const UpdateLabelSchema = z.object({
   name: z.string().min(1).optional(),
   color: LabelColorSchema.optional(),
-  position: z.number().optional(),
+  position: lenientNumber.optional(),
 });
 export type UpdateLabelInput = z.input<typeof UpdateLabelSchema>;
 
@@ -118,7 +151,7 @@ export const DuplicateCardSchema = z.object({
   cardId: z.string(),
   name: z.string().min(1).optional(),
   listId: z.string().optional(),
-  position: z.number().optional().default(65536),
+  position: lenientNumber.optional().default(65536),
 });
 export type DuplicateCardInput = z.input<typeof DuplicateCardSchema>;
 
@@ -154,13 +187,13 @@ export type UpdateProjectInput = z.input<typeof UpdateProjectSchema>;
 export const CreateBoardSchema = z.object({
   projectId: z.string(),
   name: z.string().min(1, "Board name required").max(128),
-  position: z.number().optional().default(65536),
+  position: lenientNumber.optional().default(65536),
 });
 export type CreateBoardInput = z.input<typeof CreateBoardSchema>;
 
 export const UpdateBoardSchema = z.object({
   name: z.string().min(1).max(128).optional(),
-  position: z.number().optional(),
+  position: lenientNumber.optional(),
 });
 export type UpdateBoardInput = z.input<typeof UpdateBoardSchema>;
 
@@ -210,13 +243,13 @@ export const CreateListSchema = z.object({
   boardId: z.string(),
   name: z.string().min(1, "List name required"),
   type: ListTypeSchema.optional().default("active"),
-  position: z.number().optional().default(65536),
+  position: lenientNumber.optional().default(65536),
 });
 export type CreateListInput = z.input<typeof CreateListSchema>;
 
 export const UpdateListSchema = z.object({
   name: z.string().min(1).optional(),
-  position: z.number().optional(),
+  position: lenientNumber.optional(),
   type: ListTypeSchema.optional(),
   color: ListColorSchema.nullable().optional(),
   boardId: z.string().optional(),
