@@ -29,7 +29,7 @@ describe("404 error messages", () => {
   it("names the list on card creation in a missing list", () => {
     const msg = message404("POST /api/lists/7/cards");
     expect(msg).toContain("List 7 not found");
-    expect(msg).toContain("planka_get_structure");
+    expect(msg).toContain("planka_get_board");
   });
 
   it("names the task and points to planka_get_card", () => {

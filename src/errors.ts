@@ -75,7 +75,7 @@ const NOT_FOUND_HINTS: Record<string, { name: string; hint: string }> = {
   },
   lists: {
     name: "List",
-    hint: "Get valid list IDs from planka_get_structure or planka_get_board.",
+    hint: "Get valid list IDs from planka_get_board (or planka_get_structure with includeLists=true).",
   },
   cards: { name: "Card", hint: "Get valid card IDs from planka_get_board." },
   labels: { name: "Label", hint: "Get valid label IDs from planka_get_board." },

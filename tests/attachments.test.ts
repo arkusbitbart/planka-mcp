@@ -132,6 +132,31 @@ describe("resolveUploadPath", () => {
       resolveUploadPath("inside.txt", path.join(root, "missing-base"))
     ).rejects.toThrow(PlankaConfigError);
   });
+
+  it("works when PLANKA_UPLOAD_DIR ends with a trailing slash", async () => {
+    const resolved = await resolveUploadPath("inside.txt", uploadDir + path.sep);
+    expect(resolved).toBe(await fs.realpath(path.join(uploadDir, "inside.txt")));
+    await expect(
+      resolveUploadPath("../outside/secret.txt", uploadDir + path.sep)
+    ).rejects.toThrow(PlankaValidationError);
+  });
+
+  it("holds when PLANKA_UPLOAD_DIR itself is a symlink", async () => {
+    const baseLink = path.join(root, "uploads-link");
+    await fs.symlink(uploadDir, baseLink);
+
+    // Inside file still accepted, resolved against the real base
+    const resolved = await resolveUploadPath("inside.txt", baseLink);
+    expect(resolved).toBe(await fs.realpath(path.join(uploadDir, "inside.txt")));
+
+    // Escapes are still rejected
+    await expect(
+      resolveUploadPath("../outside/secret.txt", baseLink)
+    ).rejects.toThrow(PlankaValidationError);
+    await expect(
+      resolveUploadPath("sneaky-link.txt", baseLink)
+    ).rejects.toThrow(/outside/);
+  });
 });
 
 describe("addAttachment / getUploadDir without PLANKA_UPLOAD_DIR", () => {
