@@ -2,15 +2,18 @@
  * Comment operations for PLANKA API.
  */
 import { plankaClient } from "../client.js";
-import { Comment } from "../schemas/entities.js";
+import { Comment, User } from "../schemas/entities.js";
 import {
   CreateCommentSchema,
   UpdateCommentSchema,
   CreateCommentInput,
   UpdateCommentInput,
 } from "../schemas/requests.js";
-import { CommentResponse } from "../schemas/responses.js";
-import { getCard } from "./cards.js";
+import {
+  CommentResponse,
+  CommentsResponse,
+  UsersIncludedSchema,
+} from "../schemas/responses.js";
 
 /**
  * Add a comment to a card.
@@ -55,10 +58,31 @@ export async function deleteComment(commentId: string): Promise<void> {
 }
 
 /**
- * Get all comments for a card.
- * Comments are included when fetching card details.
+ * A page of comments with the users needed to resolve author names.
  */
-export async function getCommentsForCard(cardId: string): Promise<Comment[]> {
-  const cardDetails = await getCard(cardId);
-  return cardDetails.comments;
+export interface CommentsPage {
+  comments: Comment[];
+  users: User[];
+}
+
+/**
+ * Get comments for a card.
+ * GET /cards/{cardId}/comments — comments are NOT part of the card detail
+ * response's included data; this dedicated endpoint returns them as items
+ * (recent first) with the authors under included.users. Paginated via
+ * beforeId.
+ */
+export async function getCommentsForCard(
+  cardId: string,
+  beforeId?: string
+): Promise<CommentsPage> {
+  const query = beforeId ? `?beforeId=${encodeURIComponent(beforeId)}` : "";
+  const response = await plankaClient.get<unknown>(
+    `/api/cards/${cardId}/comments${query}`
+  );
+  const parsed = CommentsResponse.parse(response);
+  const included = UsersIncludedSchema.parse(
+    (response as Record<string, unknown>).included || {}
+  );
+  return { comments: parsed.items, users: included.users || [] };
 }

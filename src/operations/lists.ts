@@ -25,6 +25,8 @@ import {
 
 /**
  * Create a new list on a board.
+ * POST /boards/{boardId}/lists requires type ("active" by default),
+ * position, and name.
  */
 export async function createList(input: CreateListInput): Promise<List> {
   const validated = CreateListSchema.parse(input);
@@ -32,6 +34,7 @@ export async function createList(input: CreateListInput): Promise<List> {
   const response = await plankaClient.post<unknown>(
     `/api/boards/${validated.boardId}/lists`,
     {
+      type: validated.type,
       name: validated.name,
       position: validated.position,
     }

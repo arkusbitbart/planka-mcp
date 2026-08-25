@@ -12,6 +12,7 @@ import {
 } from "../operations/cards.js";
 import { createTasks } from "../operations/tasks.js";
 import { addLabelToCard } from "../operations/labels.js";
+import { getCommentsForCard } from "../operations/comments.js";
 import { PlankaError } from "../errors.js";
 
 /**
@@ -187,7 +188,14 @@ export const getCardTool = {
   },
   handler: async (params: { cardId: string }) => {
     try {
-      const details = await getCard(params.cardId);
+      // Comments live on their own endpoint, not in the card's included data
+      const [details, commentsPage] = await Promise.all([
+        getCard(params.cardId),
+        getCommentsForCard(params.cardId),
+      ]);
+      const commentUserById = new Map(
+        commentsPage.users.map((u) => [u.id, u])
+      );
 
       const formatted = {
         card: {
@@ -211,8 +219,9 @@ export const getCardTool = {
           isCompleted: t.isCompleted,
           ...(t.assigneeUserId && { assigneeUserId: t.assigneeUserId }),
         })),
-        comments: details.comments.map((c) => ({
+        comments: commentsPage.comments.map((c) => ({
           id: c.id,
+          author: commentUserById.get(c.userId)?.name ?? c.userId,
           text: c.text,
           createdAt: c.createdAt,
         })),

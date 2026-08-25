@@ -65,6 +65,15 @@ describe("404 error messages", () => {
     expect(msg).toContain("card 123");
   });
 
+  it("hints at missing project manager rights on project 404s", () => {
+    // PLANKA answers project-level calls without permission with 404, so
+    // the message must not send the user in circles when the ID was right.
+    const msg = message404("POST /api/projects/1846/boards");
+    expect(msg).toContain("Project 1846 not found");
+    expect(msg).toContain("project manager");
+    expect(msg).toContain("planka_get_structure");
+  });
+
   it("falls back to a generic message for unknown paths", () => {
     const msg = message404("GET /api/unknown-things/1");
     expect(msg).toContain("not found");
