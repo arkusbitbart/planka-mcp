@@ -35,9 +35,15 @@ export type CardPosition = "top" | "bottom" | number;
 
 /**
  * Resolves a card position to a number.
- * "top" -> 0 (PLANKA shifts colliding cards down); "bottom" -> after the
- * list's current last card (one extra GET /lists/{id}); numbers pass through;
- * undefined keeps the historical default of 65536.
+ * "top" -> half the first card's position, "bottom" -> after the last card
+ * (each one extra GET /lists/{id}); numbers pass through; undefined keeps
+ * the historical default of 65536.
+ *
+ * Positions are numbers with minimum 0 (per the OpenAPI spec); fractions
+ * are fine — the server repositions cards when gaps get too small
+ * (server/api/helpers/utils/insert-to-positionables.js). Edge case: if the
+ * first card sits exactly at position 0, no position strictly before it
+ * exists and the server slots the new card right after it.
  */
 export async function resolveListPosition(
   listId: string,
@@ -45,17 +51,18 @@ export async function resolveListPosition(
 ): Promise<number> {
   if (position === undefined) return DEFAULT_CARD_POSITION;
   if (typeof position === "number") return position;
-  if (position === "top") return 0;
 
   const response = await plankaClient.get<unknown>(`/api/lists/${listId}`);
   const included = ListIncludedSchema.parse(
     (response as Record<string, unknown>).included || {}
   );
-  const maxPosition = (included.cards || []).reduce(
-    (max, card) => Math.max(max, card.position),
-    0
-  );
-  return maxPosition + DEFAULT_CARD_POSITION;
+  const positions = (included.cards || []).map((card) => card.position);
+  if (positions.length === 0) return DEFAULT_CARD_POSITION;
+
+  if (position === "top") {
+    return Math.min(...positions) / 2;
+  }
+  return Math.max(...positions) + DEFAULT_CARD_POSITION;
 }
 
 /**
