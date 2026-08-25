@@ -57,7 +57,10 @@ export const createCardTool = {
           "Due date, ISO 8601 with timezone, e.g. 2026-08-31T17:00:00.000Z",
       },
       position: {
-        type: ["string", "number"],
+        anyOf: [
+          { type: "string", enum: ["top", "bottom"] },
+          { type: "number" },
+        ],
         description:
           'Where to insert the card: "top" (start of the list), "bottom" (after the current last card), or a numeric position (lower number = higher up). Omit to keep the default (65536).',
       },
@@ -298,23 +301,46 @@ export const updateCardTool = {
         description: "New card title",
       },
       description: {
-        type: ["string", "null"],
-        description: "New description (null to clear)",
+        anyOf: [{ type: "string" }, { type: "null" }],
+        description: "New description (string; null to clear)",
       },
       dueDate: {
-        type: ["string", "null"],
+        anyOf: [{ type: "string" }, { type: "null" }],
         description:
           "New due date, ISO 8601 with timezone, e.g. 2026-08-31T17:00:00.000Z (null to clear)",
       },
       isDueCompleted: {
-        type: ["boolean", "null"],
+        anyOf: [{ type: "boolean" }, { type: "null" }],
         description:
-          "Check/uncheck the due date as completed (the API field is isDueCompleted; there is no general card completion flag)",
+          "Check/uncheck the due date as completed — pass a boolean, not a string (the API field is isDueCompleted; there is no general card completion flag)",
       },
       stopwatch: {
-        type: ["string", "object", "null"],
+        anyOf: [
+          {
+            type: "string",
+            enum: ["start", "stop", "reset"],
+            description:
+              "start = begin/resume timing; stop = pause, adds elapsed time to the total; reset = remove the stopwatch",
+          },
+          {
+            type: "object",
+            properties: {
+              startedAt: {
+                anyOf: [{ type: "string" }, { type: "null" }],
+                description:
+                  "ISO 8601 start time while running, null while paused",
+              },
+              total: {
+                type: "number",
+                description: "Accumulated time in seconds",
+              },
+            },
+            required: ["startedAt", "total"],
+          },
+          { type: "null", description: "Remove the stopwatch (same as reset)" },
+        ],
         description:
-          'Time tracking: "start" (begin/resume timing), "stop" (pause, adds elapsed time to the total), "reset" (remove the stopwatch), null (same as reset), or a raw {startedAt: ISO-8601|null, total: seconds} object',
+          'Time tracking: "start", "stop", "reset", null, or a raw {startedAt, total} object',
       },
     },
     required: ["cardId"],
