@@ -105,19 +105,31 @@ export const ListSchema = z.object({
 });
 export type List = z.infer<typeof ListSchema>;
 
-// Card schema
+// Stopwatch (time tracking) on a card: total is accumulated seconds,
+// startedAt is set while running (null when paused; the spec omits the
+// nullability but live instances pause exactly this way).
+export const StopwatchSchema = z.object({
+  startedAt: z.string().nullable().optional(),
+  total: z.number(),
+});
+export type Stopwatch = z.infer<typeof StopwatchSchema>;
+
+// Card schema.
+// Field names per spec: isDueCompleted (due-date checkbox) and isClosed —
+// there is no isCompleted field in the API.
 export const CardSchema = z.object({
   id: z.string(),
   boardId: z.string(),
   listId: z.string(),
-  creatorUserId: z.string().optional(),
+  creatorUserId: z.string().nullable().optional(),
   name: z.string(),
   description: z.string().nullable().optional(),
   position: z.number(),
   type: CardTypeSchema,
   dueDate: z.string().nullable().optional(),
-  isDueDateCompleted: z.boolean().optional(),
-  isCompleted: z.boolean().optional(),
+  isDueCompleted: z.boolean().nullable().optional(),
+  isClosed: z.boolean().optional(),
+  stopwatch: StopwatchSchema.nullable().optional(),
   createdAt: z.string().nullable().optional(),
   updatedAt: z.string().nullable().optional(),
 });
