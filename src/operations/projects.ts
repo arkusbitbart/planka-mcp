@@ -3,11 +3,61 @@
  */
 import { plankaClient } from "../client.js";
 import { Project, Board, List } from "../schemas/entities.js";
-import { ProjectsResponse, ProjectsIncludedSchema } from "../schemas/responses.js";
-import { z } from "zod";
+import {
+  ProjectsResponse,
+  ProjectsIncludedSchema,
+  ProjectResponse,
+} from "../schemas/responses.js";
+import {
+  CreateProjectSchema,
+  UpdateProjectSchema,
+  CreateProjectInput,
+  UpdateProjectInput,
+} from "../schemas/requests.js";
+import { getBoard } from "./boards.js";
 
 /**
- * Full project structure with boards and lists.
+ * Create a project.
+ * POST /projects — type is required by the API ("private" by default here).
+ */
+export async function createProject(
+  input: CreateProjectInput
+): Promise<Project> {
+  const validated = CreateProjectSchema.parse(input);
+
+  const response = await plankaClient.post<unknown>("/api/projects", {
+    name: validated.name,
+    type: validated.type,
+    ...(validated.description !== undefined && {
+      description: validated.description,
+    }),
+  });
+
+  const parsed = ProjectResponse.parse(response);
+  return parsed.item;
+}
+
+/**
+ * Update a project's name or description.
+ * PATCH /projects/{id}
+ */
+export async function updateProject(
+  projectId: string,
+  input: UpdateProjectInput
+): Promise<Project> {
+  const validated = UpdateProjectSchema.parse(input);
+
+  const response = await plankaClient.patch<unknown>(
+    `/api/projects/${projectId}`,
+    validated
+  );
+
+  const parsed = ProjectResponse.parse(response);
+  return parsed.item;
+}
+
+/**
+ * Full project structure with boards and (optionally) lists.
  */
 export interface ProjectStructure {
   project: Project;
@@ -19,6 +69,8 @@ export interface ProjectStructure {
 
 /**
  * Get all projects with their boards.
+ * GET /projects returns the boards in the included part, so this is a
+ * single request.
  */
 export async function getProjects(): Promise<{
   projects: Project[];
@@ -37,9 +89,14 @@ export async function getProjects(): Promise<{
 }
 
 /**
- * Get the full structure: projects -> boards -> lists.
+ * Get the structure: projects -> boards, optionally with each board's lists.
+ * Without includeLists this is a single GET /projects; with it, one extra
+ * GET /boards/{id} per board (lists are only available there).
  */
-export async function getStructure(projectId?: string): Promise<ProjectStructure[]> {
+export async function getStructure(
+  projectId?: string,
+  includeLists = false
+): Promise<ProjectStructure[]> {
   const { projects, boards } = await getProjects();
 
   // Filter to specific project if requested
@@ -50,40 +107,20 @@ export async function getStructure(projectId?: string): Promise<ProjectStructure
   const structures: ProjectStructure[] = [];
 
   for (const project of targetProjects) {
-    const projectBoards = boards.filter((b) => b.projectId === project.id);
+    const projectBoards = boards
+      .filter((b) => b.projectId === project.id)
+      .sort((a, b) => a.position - b.position);
+
     const boardsWithLists: ProjectStructure["boards"] = [];
-
     for (const board of projectBoards) {
-      // Get board details to get lists
-      const boardResponse = await plankaClient.get<unknown>(
-        `/api/boards/${board.id}`
-      );
-      const included = (boardResponse as Record<string, unknown>).included as
-        | Record<string, unknown>
-        | undefined;
-      const lists = included?.lists
-        ? z.array(z.object({
-            id: z.string(),
-            boardId: z.string(),
-            name: z.string().nullable(),
-            position: z.number().nullable(),
-            createdAt: z.string(),
-            updatedAt: z.string().nullable().optional(),
-          })).parse(included.lists)
-        : [];
-
-      boardsWithLists.push({
-        board,
-        lists: lists.sort((a, b) => (a.position ?? 0) - (b.position ?? 0)),
-      });
+      let lists: List[] = [];
+      if (includeLists) {
+        lists = (await getBoard(board.id)).lists;
+      }
+      boardsWithLists.push({ board, lists });
     }
 
-    structures.push({
-      project,
-      boards: boardsWithLists.sort(
-        (a, b) => a.board.position - b.board.position
-      ),
-    });
+    structures.push({ project, boards: boardsWithLists });
   }
 
   return structures;

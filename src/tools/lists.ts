@@ -5,6 +5,9 @@ import {
   createList,
   updateList,
   deleteList,
+  sortList,
+  moveListCards,
+  clearList,
 } from "../operations/lists.js";
 import { PlankaError } from "../errors.js";
 
@@ -15,6 +18,11 @@ import { PlankaError } from "../errors.js";
 export const manageListsTool = {
   name: "planka_manage_lists",
   description: "Create, update, or delete lists on a board.",
+  annotations: {
+    readOnlyHint: false,
+    destructiveHint: true, // the delete action removes a list and its cards
+    idempotentHint: false,
+  },
   inputSchema: {
     type: "object" as const,
     properties: {
@@ -197,4 +205,189 @@ export const manageListsTool = {
   },
 };
 
-export const listTools = [manageListsTool];
+/**
+ * Tool: planka_sort_list
+ * Sort a list's cards by a field.
+ */
+export const sortListTool = {
+  name: "planka_sort_list",
+  description:
+    "Sort all cards of a list by name, dueDate, or createdAt.",
+  annotations: {
+    readOnlyHint: false,
+    destructiveHint: false,
+    idempotentHint: true,
+  },
+  inputSchema: {
+    type: "object" as const,
+    properties: {
+      listId: {
+        type: "string",
+        description: "The list ID",
+      },
+      fieldName: {
+        type: "string",
+        enum: ["name", "dueDate", "createdAt"],
+        description: "Field to sort by",
+      },
+      order: {
+        type: "string",
+        enum: ["asc", "desc"],
+        description: "Sort order (default: asc)",
+      },
+    },
+    required: ["listId", "fieldName"],
+  },
+  handler: async (params: {
+    listId: string;
+    fieldName: "name" | "dueDate" | "createdAt";
+    order?: "asc" | "desc";
+  }) => {
+    try {
+      await sortList(params);
+
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: JSON.stringify(
+              {
+                success: true,
+                message: `List ${params.listId} sorted by ${params.fieldName}${params.order ? ` (${params.order})` : ""}`,
+              },
+              null,
+              2
+            ),
+          },
+        ],
+      };
+    } catch (error) {
+      if (error instanceof PlankaError) {
+        return {
+          content: [{ type: "text" as const, text: `Error: ${error.message}` }],
+          isError: true,
+        };
+      }
+      throw error;
+    }
+  },
+};
+
+/**
+ * Tool: planka_move_list_cards
+ * Move all cards from one list to another.
+ */
+export const moveListCardsTool = {
+  name: "planka_move_list_cards",
+  description:
+    "Move ALL cards from one list into another list in a single call.",
+  annotations: {
+    readOnlyHint: false,
+    destructiveHint: false,
+    idempotentHint: true,
+  },
+  inputSchema: {
+    type: "object" as const,
+    properties: {
+      listId: {
+        type: "string",
+        description: "Source list ID (will be emptied)",
+      },
+      targetListId: {
+        type: "string",
+        description: "Target list ID (receives all cards)",
+      },
+    },
+    required: ["listId", "targetListId"],
+  },
+  handler: async (params: { listId: string; targetListId: string }) => {
+    try {
+      await moveListCards(params);
+
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: JSON.stringify(
+              {
+                success: true,
+                message: `All cards moved from list ${params.listId} to list ${params.targetListId}`,
+              },
+              null,
+              2
+            ),
+          },
+        ],
+      };
+    } catch (error) {
+      if (error instanceof PlankaError) {
+        return {
+          content: [{ type: "text" as const, text: `Error: ${error.message}` }],
+          isError: true,
+        };
+      }
+      throw error;
+    }
+  },
+};
+
+/**
+ * Tool: planka_clear_list
+ * Move all cards of a list to the trash.
+ */
+export const clearListTool = {
+  name: "planka_clear_list",
+  description:
+    "Clear a list: moves ALL its cards to the trash. Use with care.",
+  annotations: {
+    readOnlyHint: false,
+    destructiveHint: true, // sends every card in the list to the trash
+    idempotentHint: true,
+  },
+  inputSchema: {
+    type: "object" as const,
+    properties: {
+      listId: {
+        type: "string",
+        description: "The list ID to clear",
+      },
+    },
+    required: ["listId"],
+  },
+  handler: async (params: { listId: string }) => {
+    try {
+      await clearList(params.listId);
+
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: JSON.stringify(
+              {
+                success: true,
+                message: `All cards of list ${params.listId} moved to trash`,
+              },
+              null,
+              2
+            ),
+          },
+        ],
+      };
+    } catch (error) {
+      if (error instanceof PlankaError) {
+        return {
+          content: [{ type: "text" as const, text: `Error: ${error.message}` }],
+          isError: true,
+        };
+      }
+      throw error;
+    }
+  },
+};
+
+export const listTools = [
+  manageListsTool,
+  sortListTool,
+  moveListCardsTool,
+  clearListTool,
+];

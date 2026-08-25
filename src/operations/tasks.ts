@@ -10,9 +10,11 @@ import { Task, TaskList } from "../schemas/entities.js";
 import {
   CreateTaskSchema,
   UpdateTaskSchema,
+  UpdateTaskListSchema,
   BatchCreateTasksSchema,
   CreateTaskInput,
   UpdateTaskInput,
+  UpdateTaskListInput,
   BatchCreateTasksInput,
 } from "../schemas/requests.js";
 import { TaskResponse, TaskListResponse } from "../schemas/responses.js";
@@ -143,6 +145,24 @@ export async function updateTask(
  */
 export async function deleteTask(taskId: string): Promise<void> {
   await plankaClient.delete(`/api/tasks/${taskId}`);
+}
+
+/**
+ * Update a task-list's properties (rename, reposition, display options).
+ */
+export async function updateTaskList(
+  taskListId: string,
+  input: UpdateTaskListInput
+): Promise<TaskList> {
+  const validated = UpdateTaskListSchema.parse(input);
+
+  const response = await plankaClient.patch<unknown>(
+    `/api/task-lists/${taskListId}`,
+    validated
+  );
+
+  const parsed = TaskListResponse.parse(response);
+  return parsed.item;
 }
 
 /**

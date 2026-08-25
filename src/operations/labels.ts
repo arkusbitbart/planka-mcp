@@ -12,6 +12,7 @@ import {
   AddLabelToCardInput,
 } from "../schemas/requests.js";
 import { LabelResponse, CardLabelResponse } from "../schemas/responses.js";
+import { PlankaError } from "../errors.js";
 import { getCard } from "./cards.js";
 
 /**
@@ -78,29 +79,42 @@ export async function addLabelToCard(input: AddLabelToCardInput): Promise<CardLa
 
 /**
  * Remove a label from a card.
- * Uses PLANKA 2.0 /card-labels endpoint.
+ * DELETE /cards/{cardId}/card-labels/labelId:{labelId}
+ * (PLANKA uses the literal "labelId:" prefix in the path, so no lookup of
+ * the junction record ID is needed.)
  *
- * Note: We need the cardLabelId (the junction record ID), not the labelId.
- * This function finds the correct cardLabelId from the card's existing labels.
+ * A 404 is ambiguous: the label may already be gone, or the instance may
+ * not support this path syntax. We verify against the card's current
+ * labels instead of assuming success — a silent failure would be worse
+ * than an honest error.
  */
 export async function removeLabelFromCard(
   cardId: string,
   labelId: string
 ): Promise<void> {
-  // Get the card to find the cardLabel record
-  const cardDetails = await getCard(cardId);
-  const cardLabel = cardDetails.cardLabels.find(
-    (cl) => cl.labelId === labelId
-  );
-
-  if (!cardLabel) {
-    // Label not on card, nothing to remove
-    return;
+  const path = `/api/cards/${cardId}/card-labels/labelId:${labelId}`;
+  try {
+    await plankaClient.delete(path);
+  } catch (error) {
+    if (error instanceof PlankaError && error.status === 404) {
+      const details = await getCard(cardId);
+      const stillOnCard = details.cardLabels.some(
+        (cl) => cl.labelId === labelId
+      );
+      if (!stillOnCard) {
+        // Label is not on the card (anymore) — removal is a no-op
+        return;
+      }
+      throw new PlankaError(
+        `Removing label ${labelId} from card ${cardId} could not be confirmed: ` +
+          `DELETE ${path} returned 404, but the label is still on the card. ` +
+          "This PLANKA instance may not support the labelId: path syntax.",
+        "REMOVE_LABEL_UNCONFIRMED",
+        404
+      );
+    }
+    throw error;
   }
-
-  await plankaClient.delete(
-    `/api/cards/${cardId}/card-labels/${cardLabel.id}`
-  );
 }
 
 /**

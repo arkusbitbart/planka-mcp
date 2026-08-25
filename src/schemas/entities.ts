@@ -47,7 +47,8 @@ export const UserSchema = z.object({
   username: z.string().optional(),
   name: z.string(),
   avatarUrl: z.string().nullable().optional(),
-  createdAt: z.string(),
+  // Per the OpenAPI spec, user timestamps can be null
+  createdAt: z.string().nullable().optional(),
   updatedAt: z.string().nullable().optional(),
 });
 export type User = z.infer<typeof UserSchema>;
@@ -150,6 +151,29 @@ export const CardLabelSchema = z.object({
 });
 export type CardLabel = z.infer<typeof CardLabelSchema>;
 
+// Board membership schema (user's access to a board)
+export const BoardMembershipSchema = z.object({
+  id: z.string(),
+  projectId: z.string().optional(),
+  boardId: z.string(),
+  userId: z.string(),
+  role: z.enum(["editor", "viewer"]),
+  canComment: z.boolean().nullable().optional(),
+  createdAt: z.string().nullable().optional(),
+  updatedAt: z.string().nullable().optional(),
+});
+export type BoardMembership = z.infer<typeof BoardMembershipSchema>;
+
+// Card-Membership relationship (user assigned to a card)
+export const CardMembershipSchema = z.object({
+  id: z.string(),
+  cardId: z.string(),
+  userId: z.string(),
+  createdAt: z.string().nullable().optional(),
+  updatedAt: z.string().nullable().optional(),
+});
+export type CardMembership = z.infer<typeof CardMembershipSchema>;
+
 // Comment schema
 export const CommentSchema = z.object({
   id: z.string(),
@@ -160,6 +184,35 @@ export const CommentSchema = z.object({
   updatedAt: z.string().nullable().optional(),
 });
 export type Comment = z.infer<typeof CommentSchema>;
+
+// Action (activity log entry) schema.
+// The type enum in the spec is not exhaustive across versions, so type is
+// kept as a plain string and data as a free-form object.
+export const ActionSchema = z.object({
+  id: z.string(),
+  boardId: z.string().nullable().optional(),
+  cardId: z.string().nullable().optional(),
+  userId: z.string().nullable().optional(),
+  type: z.string(),
+  data: z.record(z.any()).nullable().optional(),
+  createdAt: z.string().nullable().optional(),
+});
+export type Action = z.infer<typeof ActionSchema>;
+
+// Notification schema
+export const NotificationSchema = z.object({
+  id: z.string(),
+  userId: z.string(),
+  creatorUserId: z.string().nullable().optional(),
+  boardId: z.string().nullable().optional(),
+  cardId: z.string().nullable().optional(),
+  commentId: z.string().nullable().optional(),
+  type: z.string(),
+  data: z.record(z.any()).nullable().optional(),
+  isRead: z.boolean(),
+  createdAt: z.string().nullable().optional(),
+});
+export type Notification = z.infer<typeof NotificationSchema>;
 
 // Attachment schema
 export const AttachmentSchema = z.object({

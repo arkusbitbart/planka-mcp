@@ -22,8 +22,12 @@ export class PlankaAuthError extends PlankaError {
 }
 
 export class PlankaNotFoundError extends PlankaError {
-  constructor(resource: string, id: string) {
-    super(`${resource} not found: ${id}`, "NOT_FOUND", 404);
+  constructor(resource: string, id: string, hint?: string) {
+    super(
+      `${resource} ${id} not found.${hint ? ` ${hint}` : ""}`,
+      "NOT_FOUND",
+      404
+    );
     this.name = "PlankaNotFoundError";
   }
 }
@@ -57,6 +61,90 @@ export class PlankaNetworkError extends PlankaError {
 }
 
 /**
+ * Maps API path collections to a resource name and the tool that lists
+ * valid IDs for it, so 404 messages tell the caller what to do next.
+ */
+const NOT_FOUND_HINTS: Record<string, { name: string; hint: string }> = {
+  projects: {
+    name: "Project",
+    hint: "Get valid project IDs from planka_get_structure.",
+  },
+  boards: {
+    name: "Board",
+    hint: "Get valid board IDs from planka_get_structure.",
+  },
+  lists: {
+    name: "List",
+    hint: "Get valid list IDs from planka_get_board (or planka_get_structure with includeLists=true).",
+  },
+  cards: { name: "Card", hint: "Get valid card IDs from planka_get_board." },
+  labels: { name: "Label", hint: "Get valid label IDs from planka_get_board." },
+  tasks: { name: "Task", hint: "Get valid task IDs from planka_get_card." },
+  "task-lists": {
+    name: "Task list",
+    hint: "Get valid task list IDs from planka_get_card.",
+  },
+  comments: {
+    name: "Comment",
+    hint: "Get valid comment IDs from planka_get_comments.",
+  },
+  attachments: {
+    name: "Attachment",
+    hint: "Get valid attachment IDs from planka_get_card.",
+  },
+};
+
+/**
+ * Derives resource type, ID, and a next-step hint from a request context
+ * like "DELETE /api/cards/123/card-memberships/userId:456".
+ */
+function describeNotFound(context?: string): {
+  resource: string;
+  id: string;
+  hint?: string;
+} {
+  const path = context?.split(" ")[1];
+  if (!path) {
+    return { resource: "Resource", id: context || "unknown" };
+  }
+
+  const segments = path.replace(/^\/api\//, "").split("/").filter(Boolean);
+  const last = segments[segments.length - 1] ?? "";
+  const cardId = segments[0] === "cards" ? segments[1] : undefined;
+
+  // Association endpoints with a prefixed key in the last path segment
+  if (last.startsWith("userId:")) {
+    return {
+      resource: "User",
+      id: last.slice("userId:".length),
+      hint:
+        `The user may not be assigned to card ${cardId ?? "?"}, or the card does not exist. ` +
+        "planka_get_card shows current assignees; planka_get_board_members lists board members.",
+    };
+  }
+  if (last.startsWith("labelId:")) {
+    return {
+      resource: "Label",
+      id: last.slice("labelId:".length),
+      hint:
+        `The label may not be on card ${cardId ?? "?"}, or the card/label does not exist. ` +
+        "planka_get_card shows the card's labels.",
+    };
+  }
+
+  // Find the last collection/{id} pair in the path
+  let found: { resource: string; id: string; hint?: string } | null = null;
+  for (let i = 0; i + 1 < segments.length; i++) {
+    const mapping = NOT_FOUND_HINTS[segments[i]];
+    if (mapping && !NOT_FOUND_HINTS[segments[i + 1]]) {
+      found = { resource: mapping.name, id: segments[i + 1], hint: mapping.hint };
+    }
+  }
+
+  return found ?? { resource: "Resource", id: context || "unknown" };
+}
+
+/**
  * Factory function to create typed errors from API responses.
  * @param status HTTP status code
  * @param body Response body (parsed JSON or null)
@@ -79,8 +167,10 @@ export function createPlankaError(
       return new PlankaAuthError(message + contextSuffix);
     case 403:
       return new PlankaPermissionError(message + contextSuffix);
-    case 404:
-      return new PlankaNotFoundError("Resource", context || "unknown");
+    case 404: {
+      const { resource, id, hint } = describeNotFound(context);
+      return new PlankaNotFoundError(resource, id, hint);
+    }
     case 422:
       return new PlankaValidationError(message + contextSuffix, body);
     default:

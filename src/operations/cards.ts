@@ -2,16 +2,70 @@
  * Card operations for PLANKA API.
  */
 import { plankaClient } from "../client.js";
-import { Card, TaskList, Task, Comment, Label, CardLabel, Attachment } from "../schemas/entities.js";
+import {
+  Card,
+  TaskList,
+  Task,
+  Comment,
+  Label,
+  CardLabel,
+  Attachment,
+  CardMembership,
+  User,
+} from "../schemas/entities.js";
 import {
   CreateCardSchema,
   UpdateCardSchema,
   MoveCardSchema,
+  DuplicateCardSchema,
   CreateCardInput,
   UpdateCardInput,
   MoveCardInput,
+  DuplicateCardInput,
 } from "../schemas/requests.js";
-import { CardResponse, CardIncludedSchema } from "../schemas/responses.js";
+import {
+  CardResponse,
+  CardIncludedSchema,
+  ListIncludedSchema,
+} from "../schemas/responses.js";
+
+/** PLANKA's standard position gap; also the historical default for new cards. */
+export const DEFAULT_CARD_POSITION = 65536;
+
+/** Position for a new card: named slot or explicit numeric position. */
+export type CardPosition = "top" | "bottom" | number;
+
+/**
+ * Resolves a card position to a number.
+ * "top" -> half the first card's position, "bottom" -> after the last card
+ * (each one extra GET /lists/{id}); numbers pass through; undefined keeps
+ * the historical default of 65536.
+ *
+ * Positions are numbers with minimum 0 (per the OpenAPI spec); fractions
+ * are fine — the server repositions cards when gaps get too small
+ * (server/api/helpers/utils/insert-to-positionables.js). Edge case: if the
+ * first card sits exactly at position 0, no position strictly before it
+ * exists and the server slots the new card right after it.
+ */
+export async function resolveListPosition(
+  listId: string,
+  position?: CardPosition
+): Promise<number> {
+  if (position === undefined) return DEFAULT_CARD_POSITION;
+  if (typeof position === "number") return position;
+
+  const response = await plankaClient.get<unknown>(`/api/lists/${listId}`);
+  const included = ListIncludedSchema.parse(
+    (response as Record<string, unknown>).included || {}
+  );
+  const positions = (included.cards || []).map((card) => card.position);
+  if (positions.length === 0) return DEFAULT_CARD_POSITION;
+
+  if (position === "top") {
+    return Math.min(...positions) / 2;
+  }
+  return Math.max(...positions) + DEFAULT_CARD_POSITION;
+}
 
 /**
  * Card details with all related entities.
@@ -24,6 +78,8 @@ export interface CardDetails {
   labels: Label[];
   cardLabels: CardLabel[];
   attachments: Attachment[];
+  cardMemberships: CardMembership[];
+  users: User[];
 }
 
 /**
@@ -67,6 +123,8 @@ export async function getCard(cardId: string): Promise<CardDetails> {
     labels: included.labels || [],
     cardLabels: included.cardLabels || [],
     attachments: included.attachments || [],
+    cardMemberships: included.cardMemberships || [],
+    users: included.users || [],
   };
 }
 
@@ -117,4 +175,26 @@ export async function moveCard(input: MoveCardInput): Promise<Card> {
  */
 export async function deleteCard(cardId: string): Promise<void> {
   await plankaClient.delete(`/api/cards/${cardId}`);
+}
+
+/**
+ * Duplicate a card.
+ * POST /cards/{id}/duplicate — copies the card including its content;
+ * optional overrides for name, target list, and position.
+ */
+export async function duplicateCard(input: DuplicateCardInput): Promise<Card> {
+  const validated = DuplicateCardSchema.parse(input);
+
+  const body: Record<string, unknown> = {};
+  if (validated.name !== undefined) body.name = validated.name;
+  if (validated.listId !== undefined) body.listId = validated.listId;
+  if (validated.position !== undefined) body.position = validated.position;
+
+  const response = await plankaClient.post<unknown>(
+    `/api/cards/${validated.cardId}/duplicate`,
+    body
+  );
+
+  const parsed = CardResponse.parse(response);
+  return parsed.item;
 }

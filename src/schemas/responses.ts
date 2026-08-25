@@ -14,6 +14,10 @@ import {
   UserSchema,
   CardLabelSchema,
   AttachmentSchema,
+  BoardMembershipSchema,
+  CardMembershipSchema,
+  ActionSchema,
+  NotificationSchema,
 } from "./entities.js";
 
 // Generic response wrappers
@@ -56,6 +60,21 @@ export const CommentsResponse = MultiItemResponse(CommentSchema);
 
 export const CardLabelResponse = SingleItemResponse(CardLabelSchema);
 
+export const CardMembershipResponse = SingleItemResponse(CardMembershipSchema);
+
+export const AttachmentResponse = SingleItemResponse(AttachmentSchema);
+
+export const ActionsResponse = MultiItemResponse(ActionSchema);
+
+export const NotificationsResponse = MultiItemResponse(NotificationSchema);
+
+// Included schema for actions/notifications (users for name resolution)
+export const UsersIncludedSchema = z
+  .object({
+    users: z.array(UserSchema).optional(),
+  })
+  .passthrough();
+
 // Auth response
 export const AuthResponse = z.object({
   item: z.string(), // JWT token
@@ -71,6 +90,8 @@ export const BoardIncludedSchema = z
     taskLists: z.array(TaskListSchema).optional(),
     tasks: z.array(TaskSchema).optional(),
     users: z.array(UserSchema).optional(),
+    boardMemberships: z.array(BoardMembershipSchema).optional(),
+    cardMemberships: z.array(CardMembershipSchema).optional(),
   })
   .passthrough(); // Allow additional fields
 
@@ -84,6 +105,19 @@ export const CardIncludedSchema = z
     cardLabels: z.array(CardLabelSchema).optional(),
     attachments: z.array(AttachmentSchema).optional(),
     users: z.array(UserSchema).optional(),
+    cardMemberships: z.array(CardMembershipSchema).optional(),
+  })
+  .passthrough();
+
+// Included entities schema for list details
+export const ListIncludedSchema = z
+  .object({
+    cards: z.array(CardSchema).optional(),
+    users: z.array(UserSchema).optional(),
+    cardMemberships: z.array(CardMembershipSchema).optional(),
+    cardLabels: z.array(CardLabelSchema).optional(),
+    taskLists: z.array(TaskListSchema).optional(),
+    tasks: z.array(TaskSchema).optional(),
   })
   .passthrough();
 

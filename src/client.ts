@@ -1,5 +1,11 @@
 /**
  * HTTP client for PLANKA API with automatic authentication.
+ *
+ * Supports two authentication modes:
+ * - API key (preferred): set PLANKA_API_KEY, sent as X-Api-Key header on every
+ *   request. No login request is ever made in this mode.
+ * - Email/password (fallback): set PLANKA_AGENT_EMAIL and PLANKA_AGENT_PASSWORD,
+ *   exchanged for a JWT via POST /api/access-tokens and refreshed automatically.
  */
 import {
   PlankaAuthError,
@@ -9,41 +15,53 @@ import {
 } from "./errors.js";
 import { AuthResponse } from "./schemas/responses.js";
 
-interface ClientConfig {
-  baseUrl: string;
-  email: string;
-  password: string;
-}
+type ClientConfig =
+  | { baseUrl: string; authMode: "apiKey"; apiKey: string }
+  | { baseUrl: string; authMode: "credentials"; email: string; password: string };
 
 /**
  * Validates and returns the configuration from environment variables.
+ * PLANKA_API_KEY takes precedence; email/password are only required without it.
  */
 function getConfig(): ClientConfig {
   const baseUrl = process.env.PLANKA_BASE_URL;
+  const apiKey = process.env.PLANKA_API_KEY;
   const email = process.env.PLANKA_AGENT_EMAIL;
   const password = process.env.PLANKA_AGENT_PASSWORD;
 
-  const missing: string[] = [];
-  if (!baseUrl) missing.push("PLANKA_BASE_URL");
-  if (!email) missing.push("PLANKA_AGENT_EMAIL");
-  if (!password) missing.push("PLANKA_AGENT_PASSWORD");
-
-  if (missing.length > 0) {
+  if (!baseUrl) {
     throw new PlankaConfigError(
-      `Missing required environment variables: ${missing.join(", ")}`
+      "Missing required environment variable: PLANKA_BASE_URL"
     );
   }
 
   // Validate URL format
   try {
-    new URL(baseUrl!);
+    new URL(baseUrl);
   } catch {
     throw new PlankaConfigError(`Invalid PLANKA_BASE_URL: ${baseUrl}`);
   }
 
-  // TypeScript narrowing: after the check above, these are guaranteed to be defined
+  const normalizedBaseUrl = baseUrl.replace(/\/$/, ""); // Remove trailing slash
+
+  if (apiKey) {
+    return { baseUrl: normalizedBaseUrl, authMode: "apiKey", apiKey };
+  }
+
+  const missing: string[] = [];
+  if (!email) missing.push("PLANKA_AGENT_EMAIL");
+  if (!password) missing.push("PLANKA_AGENT_PASSWORD");
+
+  if (missing.length > 0) {
+    throw new PlankaConfigError(
+      `Missing required environment variables: ${missing.join(", ")}. ` +
+        "Either set PLANKA_API_KEY, or set both PLANKA_AGENT_EMAIL and PLANKA_AGENT_PASSWORD."
+    );
+  }
+
   return {
-    baseUrl: baseUrl!.replace(/\/$/, ""), // Remove trailing slash
+    baseUrl: normalizedBaseUrl,
+    authMode: "credentials",
     email: email!,
     password: password!,
   };
@@ -79,10 +97,16 @@ class PlankaClient {
   }
 
   /**
-   * Authenticates and retrieves a new JWT token.
+   * Authenticates with email/password and retrieves a new JWT token.
+   * Only used in credentials mode; API key mode never calls this.
    */
   private async authenticate(): Promise<string> {
     const config = this.getConfig();
+    if (config.authMode !== "credentials") {
+      throw new PlankaAuthError(
+        "Internal error: login attempted in API key mode"
+      );
+    }
     const url = `${config.baseUrl}/api/access-tokens`;
 
     let response: Response;
@@ -113,8 +137,18 @@ class PlankaClient {
 
     if (!response.ok) {
       const body = await this.safeParseJson(response);
+      const message =
+        typeof body === "object" && body !== null && "message" in body
+          ? String((body as Record<string, unknown>).message)
+          : "";
+
+      if (response.status === 403 && message === "Terms acceptance required") {
+        return this.handleTermsAcceptance(body);
+      }
+
       throw new PlankaAuthError(
-        `Authentication failed: ${response.status} ${response.statusText}`
+        `Authentication failed: ${response.status} ${response.statusText}` +
+          (message ? ` (${message})` : "")
       );
     }
 
@@ -131,6 +165,79 @@ class PlankaClient {
   }
 
   /**
+   * Handles PLANKA's "Terms acceptance required" login response.
+   *
+   * Accepting the terms is a consent given on the account owner's behalf,
+   * so it only happens when PLANKA_AUTO_ACCEPT_TERMS is explicitly "true".
+   * The flow (POST /access-tokens/accept-terms) needs a pendingToken from
+   * the login response and the signature from GET /terms; the OpenAPI spec
+   * does not document where the pendingToken is returned, so this reads it
+   * defensively and fails with clear guidance if it is absent.
+   */
+  private async handleTermsAcceptance(loginBody: unknown): Promise<string> {
+    const config = this.getConfig();
+
+    if (process.env.PLANKA_AUTO_ACCEPT_TERMS !== "true") {
+      throw new PlankaAuthError(
+        "PLANKA requires accepting the terms of service for this account. " +
+          "Log in manually once via the PLANKA web UI to review and accept them, " +
+          "or set PLANKA_AUTO_ACCEPT_TERMS=true to accept them automatically on login."
+      );
+    }
+
+    const bodyObj = (loginBody ?? {}) as Record<string, any>;
+    const pendingToken: unknown =
+      bodyObj.pendingToken ?? bodyObj.item?.pendingToken ?? bodyObj.data?.pendingToken;
+
+    if (typeof pendingToken !== "string" || pendingToken === "") {
+      throw new PlankaAuthError(
+        "PLANKA requires accepting the terms, but the login response contained no " +
+          "pending token (the OpenAPI spec does not document where it is returned). " +
+          "Log in manually once via the PLANKA web UI to accept the terms."
+      );
+    }
+
+    // Fetch the current terms signature
+    const termsResponse = await fetch(`${config.baseUrl}/api/terms`, {
+      signal: this.createTimeoutSignal(),
+    });
+    const termsBody = (await this.safeParseJson(termsResponse)) as Record<
+      string,
+      any
+    > | null;
+    const signature: unknown = termsBody?.item?.signature;
+
+    if (!termsResponse.ok || typeof signature !== "string") {
+      throw new PlankaAuthError(
+        "Could not fetch the terms signature from GET /api/terms; cannot accept " +
+          "the terms automatically. Log in manually once via the PLANKA web UI."
+      );
+    }
+
+    const acceptResponse = await fetch(
+      `${config.baseUrl}/api/access-tokens/accept-terms`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pendingToken, signature }),
+        signal: this.createTimeoutSignal(),
+      }
+    );
+
+    if (!acceptResponse.ok) {
+      throw new PlankaAuthError(
+        `Accepting the terms failed: ${acceptResponse.status} ${acceptResponse.statusText}. ` +
+          "Log in manually once via the PLANKA web UI."
+      );
+    }
+
+    const parsed = AuthResponse.parse(await acceptResponse.json());
+    this.tokenExpiresAt = Date.now() + 25 * 60 * 1000;
+    this.token = parsed.item;
+    return this.token;
+  }
+
+  /**
    * Gets a valid token, refreshing if necessary.
    */
   private async getToken(): Promise<string> {
@@ -138,6 +245,19 @@ class PlankaClient {
       return this.authenticate();
     }
     return this.token;
+  }
+
+  /**
+   * Builds the authentication headers for a request.
+   * API key mode sends X-Api-Key; credentials mode sends a Bearer token.
+   */
+  private async getAuthHeaders(): Promise<Record<string, string>> {
+    const config = this.getConfig();
+    if (config.authMode === "apiKey") {
+      return { "X-Api-Key": config.apiKey };
+    }
+    const token = await this.getToken();
+    return { Authorization: `Bearer ${token}` };
   }
 
   /**
@@ -153,6 +273,8 @@ class PlankaClient {
 
   /**
    * Makes an authenticated request to the PLANKA API.
+   * FormData bodies are sent as multipart/form-data (fetch sets the boundary);
+   * all other bodies are JSON-encoded.
    * @param isRetry - Internal flag to prevent infinite retry loops on 401
    */
   private async request<T>(
@@ -162,15 +284,17 @@ class PlankaClient {
     isRetry = false
   ): Promise<T> {
     const config = this.getConfig();
-    const token = await this.getToken();
     const url = `${config.baseUrl}${path}`;
 
-    const headers: Record<string, string> = {
-      Authorization: `Bearer ${token}`,
-    };
+    const headers: Record<string, string> = await this.getAuthHeaders();
 
-    if (body !== undefined) {
+    let requestBody: string | FormData | undefined;
+    if (body instanceof FormData) {
+      // Let fetch set the multipart Content-Type incl. boundary
+      requestBody = body;
+    } else if (body !== undefined) {
       headers["Content-Type"] = "application/json";
+      requestBody = JSON.stringify(body);
     }
 
     let response: Response;
@@ -178,7 +302,7 @@ class PlankaClient {
       response = await fetch(url, {
         method,
         headers,
-        body: body !== undefined ? JSON.stringify(body) : undefined,
+        body: requestBody,
         signal: this.createTimeoutSignal(),
       });
     } catch (error) {
@@ -196,11 +320,19 @@ class PlankaClient {
     const data = await this.safeParseJson(response);
 
     if (!response.ok) {
-      // If token expired and this is not already a retry, get fresh token and retry once
-      if (response.status === 401 && this.token && !isRetry) {
-        this.token = null;
-        this.tokenExpiresAt = 0;
-        return this.request(method, path, body, true);
+      if (response.status === 401) {
+        if (config.authMode === "apiKey") {
+          // API keys are static; retrying cannot help
+          throw new PlankaAuthError(
+            "Authentication failed: PLANKA rejected the API key (X-Api-Key). Check PLANKA_API_KEY."
+          );
+        }
+        // If token expired and this is not already a retry, get fresh token and retry once
+        if (this.token && !isRetry) {
+          this.token = null;
+          this.tokenExpiresAt = 0;
+          return this.request(method, path, body, true);
+        }
       }
       throw createPlankaError(response.status, data, `${method} ${path}`);
     }
@@ -223,6 +355,13 @@ class PlankaClient {
   }
 
   /**
+   * POST request with a multipart/form-data body.
+   */
+  async postForm<T>(path: string, form: FormData): Promise<T> {
+    return this.request<T>("POST", path, form);
+  }
+
+  /**
    * PATCH request.
    */
   async patch<T>(path: string, body: unknown): Promise<T> {
@@ -232,8 +371,8 @@ class PlankaClient {
   /**
    * DELETE request.
    */
-  async delete(path: string): Promise<void> {
-    return this.request<void>("DELETE", path);
+  async delete<T = void>(path: string): Promise<T> {
+    return this.request<T>("DELETE", path);
   }
 }
 

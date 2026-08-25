@@ -46,8 +46,17 @@ export const UpdateTaskSchema = z.object({
   name: z.string().min(1).optional(),
   isCompleted: z.boolean().optional(),
   position: z.number().optional(),
+  assigneeUserId: z.string().nullable().optional(),
 });
 export type UpdateTaskInput = z.input<typeof UpdateTaskSchema>;
+
+export const UpdateTaskListSchema = z.object({
+  name: z.string().min(1).optional(),
+  position: z.number().optional(),
+  showOnFrontOfCard: z.boolean().optional(),
+  hideCompletedTasks: z.boolean().optional(),
+});
+export type UpdateTaskListInput = z.input<typeof UpdateTaskListSchema>;
 
 export const BatchCreateTasksSchema = z.object({
   cardId: z.string(),
@@ -87,6 +96,85 @@ export const RemoveLabelFromCardSchema = z.object({
   labelId: z.string(),
 });
 export type RemoveLabelFromCardInput = z.input<typeof RemoveLabelFromCardSchema>;
+
+// Card duplication
+export const DuplicateCardSchema = z.object({
+  cardId: z.string(),
+  name: z.string().min(1).optional(),
+  listId: z.string().optional(),
+  position: z.number().optional(),
+});
+export type DuplicateCardInput = z.input<typeof DuplicateCardSchema>;
+
+// List actions
+export const SortListSchema = z.object({
+  listId: z.string(),
+  fieldName: z.enum(["name", "dueDate", "createdAt"]),
+  order: z.enum(["asc", "desc"]).optional(),
+});
+export type SortListInput = z.input<typeof SortListSchema>;
+
+export const MoveListCardsSchema = z.object({
+  listId: z.string(),
+  targetListId: z.string(),
+});
+export type MoveListCardsInput = z.input<typeof MoveListCardsSchema>;
+
+// Project requests
+export const CreateProjectSchema = z.object({
+  name: z.string().min(1, "Project name required"),
+  type: z.enum(["private", "shared"]).optional().default("private"),
+  description: z.string().optional(),
+});
+export type CreateProjectInput = z.input<typeof CreateProjectSchema>;
+
+export const UpdateProjectSchema = z.object({
+  name: z.string().min(1).optional(),
+  description: z.string().nullable().optional(),
+});
+export type UpdateProjectInput = z.input<typeof UpdateProjectSchema>;
+
+// Board requests
+export const CreateBoardSchema = z.object({
+  projectId: z.string(),
+  name: z.string().min(1, "Board name required").max(128),
+  position: z.number().optional().default(65536),
+});
+export type CreateBoardInput = z.input<typeof CreateBoardSchema>;
+
+export const UpdateBoardSchema = z.object({
+  name: z.string().min(1).max(128).optional(),
+  position: z.number().optional(),
+});
+export type UpdateBoardInput = z.input<typeof UpdateBoardSchema>;
+
+// Card membership requests
+export const AssignCardSchema = z.object({
+  cardId: z.string(),
+  userId: z.string(),
+});
+export type AssignCardInput = z.input<typeof AssignCardSchema>;
+
+export const UnassignCardSchema = z.object({
+  cardId: z.string(),
+  userId: z.string(),
+});
+export type UnassignCardInput = z.input<typeof UnassignCardSchema>;
+
+// Attachment requests
+export const AddAttachmentSchema = z.object({
+  cardId: z.string(),
+  filePath: z.string().min(1, "filePath required"),
+  name: z.string().max(128).optional(),
+});
+export type AddAttachmentInput = z.input<typeof AddAttachmentSchema>;
+
+export const AddLinkAttachmentSchema = z.object({
+  cardId: z.string(),
+  url: z.string().url("url must be a valid URL").max(2048),
+  name: z.string().max(128).optional(),
+});
+export type AddLinkAttachmentInput = z.input<typeof AddLinkAttachmentSchema>;
 
 // Comment requests
 export const CreateCommentSchema = z.object({
