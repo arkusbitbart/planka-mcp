@@ -109,6 +109,13 @@ export const AddAttachmentSchema = z.object({
 });
 export type AddAttachmentInput = z.input<typeof AddAttachmentSchema>;
 
+export const AddLinkAttachmentSchema = z.object({
+  cardId: z.string(),
+  url: z.string().url("url must be a valid URL").max(2048),
+  name: z.string().max(128).optional(),
+});
+export type AddLinkAttachmentInput = z.input<typeof AddLinkAttachmentSchema>;
+
 // Comment requests
 export const CreateCommentSchema = z.object({
   cardId: z.string(),

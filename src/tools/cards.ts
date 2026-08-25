@@ -7,6 +7,7 @@ import {
   updateCard,
   moveCard,
   deleteCard,
+  resolveListPosition,
 } from "../operations/cards.js";
 import { createTasks } from "../operations/tasks.js";
 import { addLabelToCard } from "../operations/labels.js";
@@ -47,7 +48,13 @@ export const createCardTool = {
       },
       dueDate: {
         type: "string",
-        description: "Due date in ISO format",
+        description:
+          "Due date, ISO 8601 with timezone, e.g. 2026-08-31T17:00:00.000Z",
+      },
+      position: {
+        type: ["string", "number"],
+        description:
+          'Where to insert the card: "top" (start of the list), "bottom" (after the current last card), or a numeric position (lower number = higher up). Omit to keep the default (65536).',
       },
       labelIds: {
         type: "array",
@@ -63,15 +70,38 @@ export const createCardTool = {
     description?: string;
     tasks?: string[];
     dueDate?: string;
+    position?: string | number;
     labelIds?: string[];
   }) => {
     try {
+      if (
+        typeof params.position === "string" &&
+        params.position !== "top" &&
+        params.position !== "bottom"
+      ) {
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: `Error: Invalid position '${params.position}'. Use "top", "bottom", or a number.`,
+            },
+          ],
+          isError: true,
+        };
+      }
+
+      const position = await resolveListPosition(
+        params.listId,
+        params.position as "top" | "bottom" | number | undefined
+      );
+
       // Create the card
       const card = await createCard({
         listId: params.listId,
         name: params.name,
         description: params.description,
         dueDate: params.dueDate,
+        position,
       });
 
       // Add tasks if provided
@@ -187,6 +217,14 @@ export const getCardTool = {
             color: label?.color,
           };
         }),
+        // userId included so planka_unassign_card can be called directly
+        assignees: details.cardMemberships.map((cm) => {
+          const user = details.users.find((u) => u.id === cm.userId);
+          return {
+            userId: cm.userId,
+            name: user?.name ?? "(unknown user)",
+          };
+        }),
         attachments: details.attachments.map((a) => ({
           id: a.id,
           name: a.name,
@@ -243,7 +281,8 @@ export const updateCardTool = {
       },
       dueDate: {
         type: ["string", "null"],
-        description: "New due date (null to clear)",
+        description:
+          "New due date, ISO 8601 with timezone, e.g. 2026-08-31T17:00:00.000Z (null to clear)",
       },
       isCompleted: {
         type: "boolean",

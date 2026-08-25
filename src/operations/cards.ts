@@ -2,7 +2,17 @@
  * Card operations for PLANKA API.
  */
 import { plankaClient } from "../client.js";
-import { Card, TaskList, Task, Comment, Label, CardLabel, Attachment } from "../schemas/entities.js";
+import {
+  Card,
+  TaskList,
+  Task,
+  Comment,
+  Label,
+  CardLabel,
+  Attachment,
+  CardMembership,
+  User,
+} from "../schemas/entities.js";
 import {
   CreateCardSchema,
   UpdateCardSchema,
@@ -11,7 +21,42 @@ import {
   UpdateCardInput,
   MoveCardInput,
 } from "../schemas/requests.js";
-import { CardResponse, CardIncludedSchema } from "../schemas/responses.js";
+import {
+  CardResponse,
+  CardIncludedSchema,
+  ListIncludedSchema,
+} from "../schemas/responses.js";
+
+/** PLANKA's standard position gap; also the historical default for new cards. */
+export const DEFAULT_CARD_POSITION = 65536;
+
+/** Position for a new card: named slot or explicit numeric position. */
+export type CardPosition = "top" | "bottom" | number;
+
+/**
+ * Resolves a card position to a number.
+ * "top" -> 0 (PLANKA shifts colliding cards down); "bottom" -> after the
+ * list's current last card (one extra GET /lists/{id}); numbers pass through;
+ * undefined keeps the historical default of 65536.
+ */
+export async function resolveListPosition(
+  listId: string,
+  position?: CardPosition
+): Promise<number> {
+  if (position === undefined) return DEFAULT_CARD_POSITION;
+  if (typeof position === "number") return position;
+  if (position === "top") return 0;
+
+  const response = await plankaClient.get<unknown>(`/api/lists/${listId}`);
+  const included = ListIncludedSchema.parse(
+    (response as Record<string, unknown>).included || {}
+  );
+  const maxPosition = (included.cards || []).reduce(
+    (max, card) => Math.max(max, card.position),
+    0
+  );
+  return maxPosition + DEFAULT_CARD_POSITION;
+}
 
 /**
  * Card details with all related entities.
@@ -24,6 +69,8 @@ export interface CardDetails {
   labels: Label[];
   cardLabels: CardLabel[];
   attachments: Attachment[];
+  cardMemberships: CardMembership[];
+  users: User[];
 }
 
 /**
@@ -67,6 +114,8 @@ export async function getCard(cardId: string): Promise<CardDetails> {
     labels: included.labels || [],
     cardLabels: included.cardLabels || [],
     attachments: included.attachments || [],
+    cardMemberships: included.cardMemberships || [],
+    users: included.users || [],
   };
 }
 

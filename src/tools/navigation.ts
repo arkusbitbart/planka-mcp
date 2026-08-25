@@ -111,6 +111,15 @@ export const getBoardTool = {
       labelsByCard.set(cl.cardId, labels);
     }
 
+    // Build card-assignee lookup (names only; userIds via planka_get_board_members)
+    const userById = new Map(details.users.map((u) => [u.id, u]));
+    const assigneesByCard = new Map<string, string[]>();
+    for (const cm of details.cardMemberships) {
+      const assignees = assigneesByCard.get(cm.cardId) || [];
+      assignees.push(userById.get(cm.userId)?.name ?? "(unknown user)");
+      assigneesByCard.set(cm.cardId, assignees);
+    }
+
     const formatted = {
       board: {
         id: details.board.id,
@@ -139,7 +148,8 @@ export const getBoardTool = {
               if (card.description) {
                 cardData.description =
                   card.description.length > 100
-                    ? card.description.substring(0, 100) + "..."
+                    ? card.description.substring(0, 100) +
+                      "… [truncated — planka_get_card returns the full description]"
                     : card.description;
               }
 
@@ -154,6 +164,11 @@ export const getBoardTool = {
               const cardLabels = labelsByCard.get(card.id);
               if (cardLabels && cardLabels.length > 0) {
                 cardData.labels = cardLabels;
+              }
+
+              const assignees = assigneesByCard.get(card.id);
+              if (assignees && assignees.length > 0) {
+                cardData.assignees = assignees;
               }
 
               if (params.includeTaskCounts !== false && card.taskCount > 0) {

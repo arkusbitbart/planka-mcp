@@ -92,6 +92,14 @@ export const CardIncludedSchema = z
     cardLabels: z.array(CardLabelSchema).optional(),
     attachments: z.array(AttachmentSchema).optional(),
     users: z.array(UserSchema).optional(),
+    cardMemberships: z.array(CardMembershipSchema).optional(),
+  })
+  .passthrough();
+
+// Included entities schema for list details
+export const ListIncludedSchema = z
+  .object({
+    cards: z.array(CardSchema).optional(),
   })
   .passthrough();
 

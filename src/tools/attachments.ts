@@ -1,7 +1,11 @@
 /**
  * Attachment tools for PLANKA MCP server.
  */
-import { addAttachment, getUploadDir } from "../operations/attachments.js";
+import {
+  addAttachment,
+  addLinkAttachment,
+  getUploadDir,
+} from "../operations/attachments.js";
 import { PlankaError } from "../errors.js";
 
 /**
@@ -87,4 +91,76 @@ export const addAttachmentTool = {
   },
 };
 
-export const attachmentTools = [addAttachmentTool];
+/**
+ * Tool: planka_add_link_attachment
+ * Attach a URL as a link attachment on a card. Always available —
+ * independent of PLANKA_UPLOAD_DIR.
+ */
+export const addLinkAttachmentTool = {
+  name: "planka_add_link_attachment",
+  description:
+    "Attach a URL (e.g. a PR, document, or website) as a link attachment on a card.",
+  annotations: {
+    readOnlyHint: false,
+    destructiveHint: false,
+    idempotentHint: false,
+  },
+  inputSchema: {
+    type: "object" as const,
+    properties: {
+      cardId: {
+        type: "string",
+        description: "The card ID to attach the link to",
+      },
+      url: {
+        type: "string",
+        description: "The URL to attach (max 2048 characters)",
+      },
+      name: {
+        type: "string",
+        description:
+          "Optional display name for the attachment (default: the URL)",
+      },
+    },
+    required: ["cardId", "url"],
+  },
+  handler: async (params: { cardId: string; url: string; name?: string }) => {
+    try {
+      const attachment = await addLinkAttachment({
+        cardId: params.cardId,
+        url: params.url,
+        name: params.name,
+      });
+
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: JSON.stringify(
+              {
+                success: true,
+                attachment: {
+                  id: attachment.id,
+                  cardId: attachment.cardId,
+                  name: attachment.name,
+                },
+              },
+              null,
+              2
+            ),
+          },
+        ],
+      };
+    } catch (error) {
+      if (error instanceof PlankaError) {
+        return {
+          content: [{ type: "text" as const, text: `Error: ${error.message}` }],
+          isError: true,
+        };
+      }
+      throw error;
+    }
+  },
+};
+
+export const attachmentTools = [addAttachmentTool, addLinkAttachmentTool];

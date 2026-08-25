@@ -10,6 +10,8 @@ import {
   CardLabel,
   TaskList,
   Task,
+  CardMembership,
+  User,
 } from "../schemas/entities.js";
 import { BoardResponse, BoardIncludedSchema } from "../schemas/responses.js";
 
@@ -24,6 +26,8 @@ export interface BoardDetails {
   cardLabels: CardLabel[];
   taskLists: TaskList[];
   tasks: Task[];
+  cardMemberships: CardMembership[];
+  users: User[];
 }
 
 /**
@@ -54,6 +58,8 @@ export async function getBoard(boardId: string): Promise<BoardDetails> {
     cardLabels: included.cardLabels || [],
     taskLists: (included.taskLists || []).sort((a, b) => a.position - b.position),
     tasks: included.tasks || [],
+    cardMemberships: included.cardMemberships || [],
+    users: included.users || [],
   };
 }
 
@@ -68,6 +74,8 @@ export async function getBoardWithTaskCounts(
   cards: CardWithTaskCounts[];
   labels: Label[];
   cardLabels: CardLabel[];
+  cardMemberships: CardMembership[];
+  users: User[];
 }> {
   const details = await getBoard(boardId);
 
@@ -115,6 +123,8 @@ export async function getBoardWithTaskCounts(
     cards: cardsWithCounts,
     labels: details.labels,
     cardLabels: details.cardLabels,
+    cardMemberships: details.cardMemberships,
+    users: details.users,
   };
 }
 

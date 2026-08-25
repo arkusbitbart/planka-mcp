@@ -8,11 +8,16 @@ import { labelTools } from "./labels.js";
 import { commentTools } from "./comments.js";
 import { listTools } from "./lists.js";
 import { memberTools } from "./members.js";
-import { attachmentTools, isAttachmentToolEnabled } from "./attachments.js";
+import {
+  addAttachmentTool,
+  addLinkAttachmentTool,
+  isAttachmentToolEnabled,
+} from "./attachments.js";
 
 /**
  * All registered tools.
- * The attachment tool is only exposed when PLANKA_UPLOAD_DIR is configured.
+ * The file attachment tool is only exposed when PLANKA_UPLOAD_DIR is
+ * configured; link attachments are always available.
  */
 export const allTools = [
   ...navigationTools,
@@ -22,7 +27,8 @@ export const allTools = [
   ...commentTools,
   ...listTools,
   ...memberTools,
-  ...(isAttachmentToolEnabled() ? attachmentTools : []),
+  ...(isAttachmentToolEnabled() ? [addAttachmentTool] : []),
+  addLinkAttachmentTool,
 ];
 
 /**

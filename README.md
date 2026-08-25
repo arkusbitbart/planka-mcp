@@ -7,7 +7,7 @@ A Model Context Protocol (MCP) server for [PLANKA](https://planka.app) kanban bo
 - Full PLANKA 2.0 API support
 - Type-safe with Zod validation
 - Optimized for agent workflows (combined operations, sensible defaults)
-- 17 tools covering cards, tasks, labels, comments, lists, members, and attachments
+- 18 tools covering cards, tasks, labels, comments, lists, members, and attachments
 - Tool annotations (`readOnlyHint`, `destructiveHint`, `idempotentHint`) so MCP clients can auto-approve read-only calls
 
 ## Installation
@@ -141,6 +141,7 @@ Add to `~/.claude.json`:
 | Tool | Description |
 |------|-------------|
 | `planka_add_attachment` | Upload a file from `PLANKA_UPLOAD_DIR` to a card (only available when `PLANKA_UPLOAD_DIR` is set) |
+| `planka_add_link_attachment` | Attach a URL as a link attachment (always available) |
 
 ### Comments
 

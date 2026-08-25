@@ -10,7 +10,12 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { plankaClient } from "../client.js";
 import { Attachment } from "../schemas/entities.js";
-import { AddAttachmentSchema, AddAttachmentInput } from "../schemas/requests.js";
+import {
+  AddAttachmentSchema,
+  AddAttachmentInput,
+  AddLinkAttachmentSchema,
+  AddLinkAttachmentInput,
+} from "../schemas/requests.js";
 import { AttachmentResponse } from "../schemas/responses.js";
 import { PlankaConfigError, PlankaValidationError } from "../errors.js";
 
@@ -103,6 +108,31 @@ export async function addAttachment(
   form.append("type", "file");
   form.append("name", validated.name ?? fileName);
   form.append("file", new Blob([new Uint8Array(data)]), fileName);
+
+  const response = await plankaClient.postForm<unknown>(
+    `/api/cards/${validated.cardId}/attachments`,
+    form
+  );
+
+  const parsed = AttachmentResponse.parse(response);
+  return parsed.item;
+}
+
+/**
+ * Attach a URL as a link attachment on a card.
+ * POST /cards/{cardId}/attachments (multipart/form-data, type=link).
+ * Independent of PLANKA_UPLOAD_DIR — no local file is involved.
+ */
+export async function addLinkAttachment(
+  input: AddLinkAttachmentInput
+): Promise<Attachment> {
+  const validated = AddLinkAttachmentSchema.parse(input);
+
+  const form = new FormData();
+  form.append("type", "link");
+  form.append("url", validated.url);
+  // name is required by the API; fall back to the URL (capped at 128 chars)
+  form.append("name", validated.name ?? validated.url.slice(0, 128));
 
   const response = await plankaClient.postForm<unknown>(
     `/api/cards/${validated.cardId}/attachments`,
