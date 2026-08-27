@@ -8,9 +8,10 @@
  *
  * Security: this process is meant to face the open internet with write
  * access to a kanban board. It therefore REFUSES to start without
- * MCP_AUTH_TOKEN, requires `Authorization: Bearer <token>` on the MCP
- * endpoint (compared in constant time), and rate-limits failed attempts
- * per IP. Only GET /health is unauthenticated.
+ * MCP_AUTH_TOKEN, requires the token on the MCP endpoint — either as
+ * `Authorization: Bearer <token>` or as the raw `X-API-Key` value —
+ * compared in constant time, and rate-limits failed attempts per IP.
+ * Only GET /health is unauthenticated.
  */
 import {
   createServer,
@@ -43,9 +44,16 @@ export function requireAuthToken(): string {
 const sha256 = (value: string) => createHash("sha256").update(value).digest();
 
 /**
- * Constant-time bearer token check. Both sides are hashed first so
+ * Constant-time token comparison. Both sides are hashed first so
  * timingSafeEqual always compares equal-length buffers and the token
  * length is not leaked either.
+ */
+function matchesToken(provided: string, token: string): boolean {
+  return timingSafeEqual(sha256(provided), sha256(token));
+}
+
+/**
+ * Bearer check for the Authorization header.
  */
 export function isAuthorized(
   authorizationHeader: string | undefined,
@@ -57,8 +65,31 @@ export function isAuthorized(
   ) {
     return false;
   }
-  const provided = authorizationHeader.slice("Bearer ".length);
-  return timingSafeEqual(sha256(provided), sha256(token));
+  return matchesToken(authorizationHeader.slice("Bearer ".length), token);
+}
+
+/**
+ * Request-level auth: accepts the token either as
+ * "Authorization: Bearer <token>" or as the raw value of "X-API-Key"
+ * (connector UIs often cannot set the Authorization header). Both paths
+ * check the same MCP_AUTH_TOKEN with the same constant-time comparison;
+ * one matching header is sufficient.
+ */
+export function isRequestAuthorized(
+  headers: {
+    authorization?: string;
+    "x-api-key"?: string | string[];
+  },
+  token: string
+): boolean {
+  if (isAuthorized(headers.authorization, token)) {
+    return true;
+  }
+  const apiKey = headers["x-api-key"];
+  if (typeof apiKey === "string" && matchesToken(apiKey, token)) {
+    return true;
+  }
+  return false;
 }
 
 // --- Rate limiting of failed auth attempts, per IP ---------------------
@@ -129,8 +160,8 @@ async function handleHttpRequest(
   }
 
   // Deliberately uniform 401 — no hint whether the token was missing,
-  // malformed, or wrong
-  if (!isAuthorized(req.headers.authorization, token)) {
+  // malformed, wrong, or sent via the wrong header
+  if (!isRequestAuthorized(req.headers, token)) {
     registerAuthFailure(ip);
     res
       .writeHead(401, { "Content-Type": "application/json" })

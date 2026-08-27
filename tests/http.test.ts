@@ -16,6 +16,7 @@ import {
   startHttpServer,
   requireAuthToken,
   isAuthorized,
+  isRequestAuthorized,
   resetRateLimiter,
   registerAuthFailure,
   isRateLimited,
@@ -130,6 +131,60 @@ describe("authentication", () => {
     expect(isAuthorized(`Bearer ${TOKEN.slice(0, -1)}`, TOKEN)).toBe(false);
     expect(isAuthorized(undefined, TOKEN)).toBe(false);
     expect(isAuthorized(TOKEN, TOKEN)).toBe(false); // missing Bearer prefix
+  });
+});
+
+describe("X-API-Key header", () => {
+  it("200 with the correct token in X-API-Key (no Bearer prefix)", async () => {
+    const res = await mcpRequest({ "X-API-Key": TOKEN });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.result.serverInfo.name).toBe("planka-mcp");
+  });
+
+  it('401 with "Bearer <token>" inside X-API-Key — raw value only', async () => {
+    const res = await mcpRequest({ "X-API-Key": `Bearer ${TOKEN}` });
+    expect(res.status).toBe(401);
+    expect(await res.text()).toBe('{"error":"Unauthorized"}');
+  });
+
+  it("401 with a wrong X-API-Key, same body as everywhere", async () => {
+    const res = await mcpRequest({ "X-API-Key": "wrong-token" });
+    expect(res.status).toBe(401);
+    expect(await res.text()).toBe('{"error":"Unauthorized"}');
+  });
+
+  it("200 when both headers are set and only Authorization is correct", async () => {
+    const res = await mcpRequest({
+      Authorization: `Bearer ${TOKEN}`,
+      "X-API-Key": "wrong-token",
+    });
+    expect(res.status).toBe(200);
+  });
+
+  it("200 when both headers are set and only X-API-Key is correct", async () => {
+    const res = await mcpRequest({
+      Authorization: "Bearer wrong-token",
+      "X-API-Key": TOKEN,
+    });
+    expect(res.status).toBe(200);
+  });
+
+  it("401 when both headers are set and both are wrong", async () => {
+    const res = await mcpRequest({
+      Authorization: "Bearer wrong-token",
+      "X-API-Key": "also-wrong",
+    });
+    expect(res.status).toBe(401);
+    expect(await res.text()).toBe('{"error":"Unauthorized"}');
+  });
+
+  it("isRequestAuthorized handles missing headers and arrays", () => {
+    expect(isRequestAuthorized({}, TOKEN)).toBe(false);
+    expect(isRequestAuthorized({ "x-api-key": TOKEN }, TOKEN)).toBe(true);
+    expect(
+      isRequestAuthorized({ "x-api-key": [TOKEN, TOKEN] }, TOKEN)
+    ).toBe(false); // repeated header is rejected, not guessed at
   });
 });
 
