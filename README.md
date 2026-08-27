@@ -272,13 +272,15 @@ Besides stdio, the server ships an HTTP entry point (`dist/http.js`, MCP Streama
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `MCP_AUTH_TOKEN` | Yes | Long random secret; clients must send `Authorization: Bearer <token>`. Missing/wrong tokens get a uniform 401; repeated failures are rate-limited per IP |
+| `MCP_AUTH_TOKEN` | Yes | Long random secret; clients send it either as `Authorization: Bearer <token>` or as the raw value of `X-API-Key` (no `Bearer` prefix — for connector UIs that cannot set the Authorization header). Missing/wrong tokens get a uniform 401; repeated failures are rate-limited per IP |
 | `PORT` | No | Listen port (default 3000) |
 | `PLANKA_BASE_URL` + auth variables | Yes | Same PLANKA configuration as for stdio (see above) |
 
 Endpoints:
 
-- `POST /mcp` — the MCP endpoint (bearer auth required)
+- `POST /mcp` — the MCP endpoint. Auth required, via one of:
+  - `Authorization: Bearer <token>`
+  - `X-API-Key: <token>` (raw value, no prefix) — use this when the connector configuration only offers API-key-style header names
 - `GET /health` — health check, unauthenticated, returns `{"status":"ok"}`
 
 Run directly:
