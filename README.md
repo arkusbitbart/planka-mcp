@@ -264,6 +264,40 @@ This server targets PLANKA 2.x and its official OpenAPI spec (version 2.0.1):
 - Tasks live in task lists (checklists); `planka_create_tasks` auto-creates a default checklist when a card has none.
 - Archive/trash lists (null names) are handled and filtered from board views.
 
+## Remote deployment (HTTP transport)
+
+Besides stdio, the server ships an HTTP entry point (`dist/http.js`, MCP Streamable HTTP) so it can be used as a remote custom connector. Both transports share the same tool registry and run independently of each other.
+
+**The HTTP server refuses to start without `MCP_AUTH_TOKEN`.** It exposes write access to your boards, so there is deliberately no unauthenticated mode: without the variable the process exits with an error instead of starting open.
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `MCP_AUTH_TOKEN` | Yes | Long random secret; clients must send `Authorization: Bearer <token>`. Missing/wrong tokens get a uniform 401; repeated failures are rate-limited per IP |
+| `PORT` | No | Listen port (default 3000) |
+| `PLANKA_BASE_URL` + auth variables | Yes | Same PLANKA configuration as for stdio (see above) |
+
+Endpoints:
+
+- `POST /mcp` — the MCP endpoint (bearer auth required)
+- `GET /health` — health check, unauthenticated, returns `{"status":"ok"}`
+
+Run directly:
+
+```bash
+MCP_AUTH_TOKEN="$(openssl rand -hex 32)" PLANKA_BASE_URL=... PLANKA_API_KEY=... node dist/http.js
+```
+
+Or via Docker (multi-stage build, runs as non-root):
+
+```bash
+docker build -t planka-mcp .
+docker run -p 3000:3000 \
+  -e MCP_AUTH_TOKEN=... -e PLANKA_BASE_URL=... -e PLANKA_API_KEY=... \
+  planka-mcp
+```
+
+Health check for orchestrators: `curl -f http://localhost:3000/health`.
+
 ## Development
 
 ```bash
