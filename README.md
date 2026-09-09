@@ -298,7 +298,9 @@ docker run -p 3000:3000 \
   planka-mcp
 ```
 
-Health check for orchestrators: `curl -f http://localhost:3000/health`.
+Health check for orchestrators: `curl -f http://localhost:3000/health`. The image defines a `HEALTHCHECK` every 30 s; if you override it in Compose, keep the interval well above a few seconds — every check spawns a `runc` process, and a sub-second interval turns that into a CPU storm on the Docker host.
+
+Resource profile: the server keeps no persistent connections (no WebSockets, no database) — every PLANKA call is a single `fetch` with a 30 s timeout, and there is no reconnect logic that could spin. Unhandled promise rejections are logged and survived; an uncaught exception closes the listener and exits with code 1 so the supervisor's restart policy takes over.
 
 ## Development
 
