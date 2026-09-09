@@ -23,6 +23,7 @@ import { createHash, timingSafeEqual } from "node:crypto";
 import { pathToFileURL } from "node:url";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { createPlankaServer } from "./server.js";
+import { installProcessGuards } from "./process-guards.js";
 
 /**
  * Returns the required bearer token, or throws with a clear message.
@@ -240,7 +241,11 @@ const isMain =
 
 if (isMain) {
   try {
-    startHttpServer();
+    const httpServer = startHttpServer();
+    installProcessGuards({
+      shutdown: () =>
+        new Promise<void>((resolve) => httpServer.close(() => resolve())),
+    });
   } catch (error) {
     console.error(error instanceof Error ? error.message : error);
     process.exit(1);

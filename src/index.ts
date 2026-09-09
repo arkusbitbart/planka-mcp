@@ -7,11 +7,13 @@
  */
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { createPlankaServer } from "./server.js";
+import { installProcessGuards } from "./process-guards.js";
 
 /**
  * Main entry point.
  */
 async function main() {
+  installProcessGuards();
   const server = createPlankaServer();
 
   // Connect to stdio transport
